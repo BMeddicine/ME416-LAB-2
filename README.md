@@ -11,16 +11,19 @@ The task is run **twice**, once with each teammate's arm on the same rack, each 
 ## How it works
 
 ```
-Camera frame
+Phone photo (iPhone, 0.5x lens, copied into photos/)
    │
    ▼
-AprilTag detection ──► pixel centers + yaw per tag
+AprilTag detection ──► tag corners, undistorted with the calibration
    │
    ▼
-Homography (H for the table plane, H_h for raised planes such as the stamp discs)
+Base tag (+ optional OnShape holder tags) ──► H ──► camera pose R, t via K
    │
    ▼
-Table coordinates [U, V] (+ tag-to-disc offset rotated by tag yaw)
+H_h = K[r1 r2 (h·r3 + t)] per tag height ──► every tag's [U, V] and yaw
+   │
+   ▼
+Targets [U, V, W]: tag position + offset in the tag's frame (e.g. tag → disc)
    │
    ▼
 Motion sequencer, per letter:
@@ -46,16 +49,20 @@ Letters go on an arc at a fixed ρ from the base, with ϕ increasing per letter.
 
 ```
 .
-├── config/           # one file per arm + one shared layout file (see config/notes.md)
-├── calibration/      # camera intrinsics K, distortion, reprojection error
+├── config/           # layout.json (shared rack layout) + one file per arm (see config/notes.md)
+├── calibration/      # iPhone 0.5x camera calibration (cameraParams .mat)
+├── photos/           # drop the rack photo here (not committed)
 ├── src/
-│   ├── main.cpp      # loads configs, locates the rack, spells the name
-│   ├── vision.cpp    # tag detection, homography (H, H_h), pixel → [U, V]
-│   ├── kinematics.cpp  # rasticraneIk, joint limits
-│   ├── control.cpp   # servo fit θ → s, sending commands to the arm
-│   ├── sequence.cpp  # pick / ink / press / return / wipe
-│   └── logging.cpp   # Problem 2 table
-├── logs/             # Problem 2 table output
+│   ├── main.m        # loads configs, locates the rack, spells the name
+│   ├── vision/       # photo → tag poses → targets in the base frame (locateScene.m)
+│   ├── kinematics.m  # rasticraneIk, joint limits
+│   ├── control.m     # servo fit θ → s, sending commands to the arm
+│   ├── sequence.m    # pick / ink / press / return / wipe
+│   └── logging.m     # Problem 2 table
+├── tests/            # synthetic tests for src/vision
+├── firmware/         # ESP32-S3 servo controller (PlatformIO)
+├── tools/            # servo angle calibration GUI
+├── logs/             # scene logs + annotated images, Problem 2 table output
 ├── report/           # videos, sheet scans, figures, report
 └── README.md
 ```
@@ -68,19 +75,36 @@ Only the per-arm config changes between runs. Everything about the rack lives in
 
 <!-- TODO: fill in dependencies, build steps and broker details -->
 
-C++ (same language as HW1).
+MATLAB (same language as HW1). Needs the Computer Vision Toolbox (`readAprilTag`, `undistortPoints`, `insertShape`). On this PC it is installed in **R2024b**, not R2025b.
 
-1. Install dependencies: `TODO`
-2. Calibrate the camera and save K and distortion to `calibration/`.
-3. Place the ink pad and paper by hand anywhere on the plate. Mount the camera so it sees the base tag, stamp holders, ink pad and paper at once.
+1. Camera calibration: done (`calibration/iphone-0.5-cameraparams.mat`, 0.31 px mean reprojection error).
+2. Fill in the `null` values in `config/layout.json` (tag IDs, base tag offset and yaw from the base axis, tag → disc offset, heights). The program stops and names any required value that is still `null`.
+3. Place the ink pad and paper by hand anywhere on the plate.
 4. Confirm how commands reach the arm (broker address and topic, if MQTT).
+
+### Taking the photo
+
+- iPhone main camera app at **0.5x**, same resolution as the calibration (5712×4284), and JPEG ("Most Compatible" in Settings → Camera → Formats). The code checks the image size and refuses a photo taken with another lens or setting.
+- Base tag, every holder tag, ink pad tag and paper tag all in frame. Hold roughly overhead.
+- Copy the original file into `photos/`. The newest file is used. The program reads it the same way calibration did, ignoring the EXIF rotation, so don't rotate or edit it.
 
 **Code style:** camelCase, with a unit suffix where it helps (`targetYaw_deg`, `sampleTime_ms`).
 
 ## Running
 
+Locate the rack (vision only, for now):
+
+```matlab
+addpath(genpath('src'))
+scene = locateScene(RequiredLetters="BRYSON");   % newest photo in photos/
 ```
-TODO: run command, with the arm's config file as an argument
+
+This prints every target ([U, V, W], ρ, ϕ, yaw) and writes `logs/scene_<time>.json` plus an annotated `.jpg`. In the image, the yellow 50 mm grid and the red U / green V axes are the base frame drawn back onto the photo. If they don't line up with the plate, the base tag offset or yaw in the layout is wrong. Tags outlined in red failed the side-length check, which usually means the wrong `height_mm` for that tag.
+
+Tests: `matlab -batch "addpath(genpath('src')); runtests('tests')"` (use the R2024b `matlab.exe`).
+
+```
+TODO: full run command, with the arm's config file as an argument
 ```
 
 1. Run with Bryson's arm mounted and its config.

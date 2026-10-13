@@ -1,0 +1,8 @@
+
+# iPhone photos of the rack (~5 MB each); keep the folder, not the photos
+photos/*
+!photos/.gitkeep
+
+# Build output and caches
+firmware/.pio/
+__pycache__/
