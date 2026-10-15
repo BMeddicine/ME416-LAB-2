@@ -7,8 +7,12 @@
     "baseFit: base servo s1 = a * theta0 + b, theta0 = direction of +r from +U toward +V (CCW from above). b = servo angle with the arm along +U.",
     "baseFit from servo_angle_gui.py joint 1 points (2026-10-14): s = 58.5 at +U, 146.3 at +V, 237.2 at -U; a = +0.9939, b = 57.81, rms 0.90 deg. Refine with move_to_tag.py --fit.",
     "2026-10-15: b 57.81 -> 53.52 (b-only shift) from 4 tag 2 reach trials that all landed ~4.3 deg CCW; a kept until trials span more base angles.",
+    "2026-10-15: a 0.9939 -> 1.0331, b 53.52 -> 47.35 from 16 stamp-centring jogs in logs/base_offsets.csv (stamp_hover_gui.py Base check, theta0 45-141 deg), rms 1.08 servo deg (servo deadband ~1 deg). Tuned for the stamp rack: only valid for theta0 ~45-141 deg; ~6 deg off the old fit near theta0 = 0, so move_to_tag.py targets outside the rack will miss more.",
+    "baseCorrection: servo deg added to the baseFit line, linear between the listed theta0 points and held at the end values outside them. 2026-10-15: from 29 stamp-centring jogs (logs/base_offsets.csv after 14:00, all arriving clockwise with the 5 deg overshoot, jog steps 0.5 deg) over the line above: the right end of the rack (theta0 44-61) needed +1.75. Residual rms 0.44 servo deg (1.0 mm), max 0.83 (1.8 mm); line alone rms 0.96 (2.2 mm), max 2.0 (4.9 mm).",
+    "reachTable: mm added to the commanded reach R (negative = send it less far), bilinear over theta0_deg x R_mm, held at the edge values outside the grid. On top of the reach correction c(W). 2026-10-15: from logs/stamp_offsets.csv (reach jogs at two hover heights, W 34.6-66.6): L1/L4/L7/L10/L13 (R ~125) and U7/U10/U13 (R ~145) needed 0 at both heights, U4 -3.25 and U1 -4.5 at both heights (the arm overshoots outward at long reach on the left end; U1-U3 seen to overshoot repeatedly). U2/U3/U5/U6 are interpolated, not measured.",
     "Joints 2 and 3 are fit from servoCalibration (same file as tools/ik_gui.py).",
-    "reachCorrection_mm: the tool landed this much short along r in the reach trials; I is sent this much further out. move_to_tag.py --fit reports the measured value."
+    "Reach correction c(W) = reachCorrection_mm + reachCorrectionPerHeight * W: the tool lands c(W) short along r at tool height W, so I is sent that much further out. move_to_tag.py --fit reports both.",
+    "2026-10-15: 7 plumb-measured trials (W 20-60, rho 120-157, along +V) gave a radial miss of +0.44 - 0.185*W, rms 1.0 mm, with no dependence on reach -> c0 = -0.4, k = 0.185."
   ],
 
   "name": "BRYSON",
@@ -17,9 +21,23 @@
   "shoulderOffset_mm": [13.4, -16.15, 55.175],
   "toolOffset_mm": [27.724, 12.5, -32.912],
 
-  "baseFit": { "a": 0.9939, "b": 53.52 },
+  "baseFit": { "a": 1.0331, "b": 47.35 },
+  "baseCorrection": {
+    "theta0_deg": [44.5, 60.6, 76.7, 140.6],
+    "servo_deg":  [1.75, 1.76, 0.20, 0.14]
+  },
+
+  "reachTable": {
+    "theta0_deg": [44.5, 92.8, 116.8, 140.6],
+    "R_mm": [124.8, 146.0],
+    "dR_mm": [
+      [0.0, 0.0,  0.0,  0.0],
+      [0.0, 0.0, -3.25, -4.5]
+    ]
+  },
 
   "minToolHeight_mm": 0,
 
-  "reachCorrection_mm": 0.0
+  "reachCorrection_mm": -0.4,
+  "reachCorrectionPerHeight": 0.185
 }

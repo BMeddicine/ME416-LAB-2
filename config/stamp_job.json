@@ -1,0 +1,26 @@
+{
+  "_notes": [
+    "Stamp job (tools/stamp_hover_gui.py, Stamp job panel): pick a stamp, ink it, press it on the paper, put it back, park. mm / s / deg/s.",
+    "World frame [U, V, W] = arm base frame (see config/layout.json). Contact heights are of the surface the stamp face touches.",
+    "Ink pad: centre = tag inkTagId's centre + inkOffsetUVW_mm, in WORLD axes (not the tag's own axes). W is above the tag centre, whose height is otherTagHeight_mm in config/stamp_holder.json.",
+    "Paper: lies on the -U side of the robot. Its edge is the line U = (tag 0 centre U) + paperEdgeU_mm, running from V = (tag 0 centre V) + paperCornerV_mm toward +V. The paper covers U below that edge and V above that corner.",
+    "paperSpotInset_mm = default stamp spot [in from the edge along -U, in from the corner along +V]. Click the photo (Click picks: paper spot) to change it. The press needs a reach of ~130 mm or more (the arm can only get down to the paper that far out), i.e. U below about -125 near V = 0.",
+    "Press: the EE goes down to approach_mm above contact at travel speed, then at pressSpeed_degps to pressDepth below contact (the stamp face pushes into the pad / paper by that much), waits dwell_s, and lifts back to approach_mm at pressSpeed_degps.",
+    "Rocking: at the bottom of every press, ink and paper (after the dwell), the EE moves rock_mm out along the arm, rock_mm in, and back to the centre, rocks times, at pressSpeed_degps. The end plate stays level, so the stamp tips on the magnet while the paper holds its face. 0 rocks = a plain press."
+  ],
+  "inkTagId": 2,
+  "inkOffsetUVW_mm": [-60, 0, 10],
+  "paperEdgeU_mm": -155,
+  "paperCornerV_mm": 0,
+  "paperHeight_mm": 0,
+  "paperSpotInset_mm": [35.6, 92.2],
+  "advance_mm": 15,
+  "inkPressDepth_mm": 7,
+  "inkDabs": 2,
+  "paperPressDepth_mm": 9,
+  "rock_mm": 4.5,
+  "rocks": 3,
+  "approach_mm": 10.0,
+  "dwell_s": 0.5,
+  "pressSpeed_degps": 15
+}

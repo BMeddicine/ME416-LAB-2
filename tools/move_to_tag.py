@@ -18,14 +18,16 @@ Geometry (all from config/arm_<name>.json, see its _notes):
     ds = sA + sP = how far the arm's plane is beside the base axis (to the left if > 0)
 
 Inverse kinematics for P = [U, V, W]:
-    rho = |[U, V]|,  R = sqrt(rho^2 - ds^2)            (R = rA + rI + dr - c, along r)
+    rho = |[U, V]|,  R = sqrt(rho^2 - ds^2)            (R = rA + rI + dr - c(W), along r)
     theta0 = atan2(V, U) - atan2(ds, R)                 (the side offset ds turns the base)
-    rI = R - rA - dr + c,  zI = W - zA - dz  -> the two-link IK from ik_gui.py
-    c = reachCorrection_mm: measured under-reach along r (> 0 sends I further out)
+    rI = R - rA - dr + c(W),  zI = W - zA - dz  -> the two-link IK from ik_gui.py
+    c(W) = reachCorrection_mm + reachCorrectionPerHeight * W: measured under-reach along r
+        (> 0 sends I further out); it grows with the tool height W, not with the reach
     s1 = a*theta0 + b (baseFit), s2, s3 from the joint 2 / 3 fits
 """
 
 import argparse
+import collections
 import csv
 import datetime
 import json
@@ -61,7 +63,11 @@ DEFAULT_SPEED_degps = 20.0
 ARRIVE_TOL_deg = 0.15           # firmware prints positions to 0.1 deg
 ARRIVE_TIMEOUT_s = 30.0
 STATUS_POLL_s = 0.4
+STATUS_ATTEMPTS = 4             # ask for status this many times before giving up
+RECENT_LINES = 20               # firmware lines kept for error messages
+RESET_MARKERS = ("RASTICrane servo controller", "Assuming last saved pose")  # boot banner
 MIN_FIT_SPREAD_deg = 5.0        # base angles must spread this much to fit the slope a
+MIN_HEIGHT_SPREAD_mm = 15.0     # tool heights must spread this much to fit the per-height term
 
 # Webcam mode: the image size must match the calibration file.
 DEFAULT_CAMERA = 1
@@ -92,8 +98,11 @@ def loadArmConfig(path):
         "tool": require(cfg["toolOffset_mm"], "toolOffset_mm"),
         "baseA": require(cfg["baseFit"]["a"], "baseFit.a"),
         "baseB": require(cfg["baseFit"]["b"], "baseFit.b"),
+        "baseCorrection": cfg.get("baseCorrection"),
+        "reachTable": cfg.get("reachTable"),
         "minToolHeight_mm": cfg.get("minToolHeight_mm", 0.0),
         "reachCorrection_mm": cfg.get("reachCorrection_mm", 0.0),
+        "reachCorrectionPerHeight": cfg.get("reachCorrectionPerHeight", 0.0),
     }
 
 
@@ -106,8 +115,16 @@ class ReachModel:
         self.dr, sP, self.dz = cfg["tool"]
         self.ds = sA + sP              # both side offsets act the same way on the base angle
         self.baseA, self.baseB = cfg["baseA"], cfg["baseB"]
+        table = cfg.get("baseCorrection") or {}
+        self.baseTable = sorted(zip(table.get("theta0_deg", []), table.get("servo_deg", [])))
         self.minW = cfg["minToolHeight_mm"]
         self.reachCorrection = cfg["reachCorrection_mm"]
+        self.reachPerHeight = cfg["reachCorrectionPerHeight"]
+        self.reachTable = cfg.get("reachTable")
+
+    def reachCorrectionAt(self, W):
+        """Under-reach along r (mm) at tool height W; I is sent this much further out."""
+        return self.reachCorrection + self.reachPerHeight * W
 
     def baseAngleOf(self, U, V):
         """theta0 (deg) that puts a tool point at [U, V]; None if inside the side offset."""
@@ -117,13 +134,67 @@ class ReachModel:
         R = math.sqrt(rho ** 2 - self.ds ** 2)
         return math.degrees(math.atan2(V, U) - math.atan2(self.ds, R))
 
+    def reachTableAt(self, theta0_deg, R):
+        """mm added to the commanded reach at (theta0, R): bilinear in the reachTable grid,
+        held at the edge values outside it, 0 without a table."""
+        table = self.reachTable
+        if not table:
+            return 0.0
+
+        def bracket(nodes, x):
+            """(i, f): x sits fraction f of the way from nodes[i] to nodes[i + 1]."""
+            if x <= nodes[0]:
+                return 0, 0.0
+            for i in range(len(nodes) - 1):
+                if x <= nodes[i + 1]:
+                    return i, (x - nodes[i]) / (nodes[i + 1] - nodes[i])
+            return len(nodes) - 2, 1.0
+
+        thetas, reaches, dR = table["theta0_deg"], table["R_mm"], table["dR_mm"]
+        i, fi = bracket(thetas, theta0_deg)
+        j, fj = bracket(reaches, R)
+        row = [dR[jj][i] * (1 - fi) + dR[jj][i + 1] * fi for jj in (j, j + 1)]
+        return row[0] * (1 - fj) + row[1] * fj
+
+    def reachFromI(self, theta0_deg, rI, W):
+        """Tool reach R for forearm end I at rI: the inverse of solve()'s reach terms
+        (the table changes slowly with R, so a few iterations converge)."""
+        raw = self.rA + rI + self.dr - self.reachCorrectionAt(W)
+        R = raw
+        for _ in range(5):
+            R = raw - self.reachTableAt(theta0_deg, R)
+        return R
+
+    def baseCorrectionAt(self, theta0_deg):
+        """Servo deg added to the baseFit line at theta0: linear between the baseCorrection
+        points, held at the end values outside them, 0 without a table."""
+        table = self.baseTable
+        if not table:
+            return 0.0
+        if theta0_deg <= table[0][0]:
+            return table[0][1]
+        for (t0, c0), (t1, c1) in zip(table, table[1:]):
+            if theta0_deg <= t1:
+                return c0 + (c1 - c0) * (theta0_deg - t0) / (t1 - t0)
+        return table[-1][1]
+
+    def servoOf(self, theta0_deg):
+        return self.baseA * theta0_deg + self.baseB + self.baseCorrectionAt(theta0_deg)
+
+    def baseAngleOfServo(self, s1):
+        """Inverse of servoOf (the table's slope is small, so a few iterations converge)."""
+        t = (s1 - self.baseB) / self.baseA
+        for _ in range(5):
+            t = (s1 - self.baseB - self.baseCorrectionAt(t)) / self.baseA
+        return t
+
     def baseServo(self, theta0_deg):
         """s1 for theta0, trying theta0 +- 360 so the wrap never hides a reachable angle."""
         for t in (theta0_deg, theta0_deg - 360, theta0_deg + 360):
-            s1 = self.baseA * t + self.baseB
+            s1 = self.servoOf(t)
             if self.kin.inLimits(BASE, s1):
                 return t, s1
-        return None, self.baseA * theta0_deg + self.baseB
+        return None, self.servoOf(theta0_deg)
 
     def solve(self, U, V, W):
         if W < self.minW:
@@ -133,7 +204,7 @@ class ReachModel:
         if theta0 is None:
             raise ReachError(f"rho = {rho:.1f} mm is inside the side offset ({self.ds:g} mm)")
         R = math.sqrt(rho ** 2 - self.ds ** 2)
-        rI = R - self.rA - self.dr + self.reachCorrection
+        rI = R + self.reachTableAt(theta0, R) - self.rA - self.dr + self.reachCorrectionAt(W)
         zI = W - self.zA - self.dz
         sol, reason = self.kin.ik(rI, zI)
         if sol is None:
@@ -148,10 +219,11 @@ class ReachModel:
     def toolPoint(self, theta0_deg, rI, zI):
         """Forward kinematics, the inverse of solve() (used by the self-check)."""
         t = math.radians(theta0_deg)
-        R = self.rA + rI + self.dr - self.reachCorrection
+        W = self.zA + zI + self.dz
+        R = self.reachFromI(theta0_deg, rI, W)
         return (R * math.cos(t) - self.ds * math.sin(t),
                 R * math.sin(t) + self.ds * math.cos(t),
-                self.zA + zI + self.dz)
+                W)
 
 
 class Arm:
@@ -161,6 +233,7 @@ class Arm:
         self.lines = queue.Queue()
         self.link = SerialLink(self.lines)
         self.link.open(device)
+        self.recent = collections.deque(maxlen=RECENT_LINES)   # for error messages
         time.sleep(0.3)
         self.drain()
 
@@ -170,6 +243,16 @@ class Arm:
     def send(self, line):
         if not self.link.send(line):
             raise ReachError("serial port is closed")
+
+    def _take(self, line):
+        """Note a firmware line; raise if it shows the controller restarted or the port died."""
+        self.recent.append(line)
+        if line.startswith(RESET_MARKERS):
+            raise ReachError("the arm controller restarted mid-move (power dip / brownout when "
+                             "the servos stall?). It will glide home on its own; wait for it, "
+                             "then check the stamp and replan.")
+        if line.startswith("!! port lost") or line.startswith("!! write failed"):
+            raise ReachError(f"serial link lost ({line[3:]})")
 
     def drain(self):
         """Print and return the lines the firmware sent since the last call."""
@@ -182,26 +265,33 @@ class Arm:
             out.append(line)
             if line.startswith(("Rejected", "!!", "STOP")):
                 print(f"   arm: {line}")
+            self._take(line)
 
-    def status(self, timeout_s=2.0):
-        """[(position, target)] per joint from the firmware's status reply."""
-        self.drain()
-        self.send("status")
-        found = {}
-        deadline = time.monotonic() + timeout_s
-        while time.monotonic() < deadline:
-            try:
-                line = self.lines.get(timeout=0.05)
-            except queue.Empty:
-                continue
-            m = STATUS_RE.search(line)
-            if m:
-                found[int(m[1]) - 1] = (float(m[2]), float(m[3]))
-                if len(found) == 3:
-                    return [found[i] for i in range(3)]
-        raise ReachError("no status reply from the arm")
+    def status(self, timeout_s=2.0, attempts=STATUS_ATTEMPTS):
+        """[(position, target)] per joint from the firmware's status reply. A missed or garbled
+        reply is asked for again, up to attempts times."""
+        for _ in range(attempts):
+            self.drain()
+            self.send("status")
+            found = {}
+            deadline = time.monotonic() + timeout_s
+            while time.monotonic() < deadline:
+                try:
+                    line = self.lines.get(timeout=0.05)
+                except queue.Empty:
+                    continue
+                self._take(line)
+                m = STATUS_RE.search(line)
+                if m:
+                    found[int(m[1]) - 1] = (float(m[2]), float(m[3]))
+                    if len(found) == 3:
+                        return [found[i] for i in range(3)]
+        last = " | ".join(list(self.recent)[-5:]) or "nothing"
+        raise ReachError(f"no status reply from the arm after {attempts} tries "
+                         f"(last lines from it: {last})")
 
-    def moveTo(self, s):
+    def moveTo(self, s, abort=None):
+        """abort: optional threading.Event; once set, stop waiting (the caller sends 'stop')."""
         self.send(f"goto {s[0]:.1f} {s[1]:.1f} {s[2]:.1f}")
         time.sleep(0.2)
         if any(line.startswith("Rejected") for line in self.drain()):
@@ -209,6 +299,8 @@ class Arm:
         deadline = time.monotonic() + ARRIVE_TIMEOUT_s
         while time.monotonic() < deadline:
             time.sleep(STATUS_POLL_s)
+            if abort is not None and abort.is_set():
+                raise ReachError("stopped")
             joints = self.status()
             if all(abs(pos - want) <= ARRIVE_TOL_deg and abs(tgt - want) <= ARRIVE_TOL_deg
                    for (pos, tgt), want in zip(joints, s)):
@@ -327,7 +419,7 @@ def runTrial(arm, model, plan):
             "theta1_deg": r3(final["theta1"]), "theta2_deg": r3(final["theta2"]),
             "s1_deg": r3(final["s"][0]), "s2_deg": r3(final["s"][1]), "s3_deg": r3(final["s"][2]),
             "baseA": model.baseA, "baseB": model.baseB,
-            "reachCorrection_mm": model.reachCorrection,
+            "reachCorrection_mm": r3(model.reachCorrectionAt(final["W"])),    # as applied
             "missU_mm": r3(miss[0]), "missV_mm": r3(miss[1]), "missW_mm": r3(miss[2]),
         })
         print(f"Logged to {TRIALS_FILE}: miss {math.hypot(miss[0], miss[1]):.1f} mm in the plane")
@@ -475,19 +567,21 @@ def runWebcam(args, model):
             arm.close()
 
 
-def runFit(model):
-    """Base servo fit from the measured misses, plus the in-plane reach error."""
+def runFit(model, since=None):
+    """Base servo fit from the measured misses, plus the in-plane reach error.
+    since: ISO time; only trials logged at or after it are used."""
     try:
         with open(TRIALS_FILE, newline="") as f:
-            rows = [r for r in csv.DictReader(f) if r["missU_mm"] and r["missV_mm"]]
+            rows = [r for r in csv.DictReader(f) if r["missU_mm"] and r["missV_mm"]
+                    and (since is None or r["time"] >= since)]
     except FileNotFoundError:
         rows = []
     if not rows:
-        sys.exit(f"No measured trials in {TRIALS_FILE} yet.")
+        sys.exit(f"No measured trials in {TRIALS_FILE}" + (f" since {since}." if since else " yet."))
 
     print(f"{'tag':>4} {'theta0 cmd':>10} {'actual':>8} {'error':>7} {'radial':>7} "
           f"{'tangent':>8} {'miss':>6}   (deg, mm)")
-    points, radial, tangent, corrections = [], [], [], []
+    points, radial, tangent, corrections = [], [], [], []    # corrections: (W, needed c)
     for r in rows:
         U, V = float(r["U_mm"]), float(r["V_mm"])
         dU, dV = float(r["missU_mm"]), float(r["missV_mm"])
@@ -501,8 +595,8 @@ def runFit(model):
         reachDesired = math.sqrt(U ** 2 + V ** 2 - model.ds ** 2)
         radial.append(math.sqrt((U + dU) ** 2 + (V + dV) ** 2 - model.ds ** 2) - reachDesired)
         tangent.append(math.radians(actual - theta0) * reachDesired)
-        points.append((actual, float(r["s1_deg"])))
-        corrections.append(float(r.get("reachCorrection_mm") or 0) - radial[-1])
+        points.append((actual, float(r["s1_deg"]) - model.baseCorrectionAt(actual)))  # line part
+        corrections.append((float(r["W_mm"]), float(r.get("reachCorrection_mm") or 0) - radial[-1]))
         print(f"{r['tagId']:>4} {theta0:10.2f} {actual:8.2f} {actual - theta0:7.2f} "
               f"{radial[-1]:7.1f} {tangent[-1]:8.1f} {math.hypot(dU, dV):6.1f}")
 
@@ -516,9 +610,20 @@ def runFit(model):
     print(f"\n{n} trials. Radial miss mean {meanR:+.1f}, rms {rmsR:.1f} mm "
           f"(along the arm: shoulder offset, tool offset, joint 2/3 fits).")
     print(f"Tangential miss mean {meanT:+.1f}, rms {rmsT:.1f} mm (base angle: baseFit).")
-    print(f'Reach: current "reachCorrection_mm": {model.reachCorrection:g}, '
-          f'measured {sum(corrections) / n:.1f}  (spread {min(corrections):.1f} to '
-          f'{max(corrections):.1f}; a large spread means the error is not a constant offset)')
+
+    # Reach correction needed per trial = correction applied - radial miss; fit it against W.
+    heights = [w for w, _ in corrections]
+    if max(heights) - min(heights) >= MIN_HEIGHT_SPREAD_mm:
+        k, c0, rms = fitLine(corrections)
+        how = f"fit against tool height W, residual {rms:.1f} mm"
+    else:
+        k = model.reachPerHeight
+        c0 = sum(c - k * w for w, c in corrections) / n
+        how = (f"constant only, per-height term kept (need tool heights spread over "
+               f"{MIN_HEIGHT_SPREAD_mm:g} mm or more to fit it)")
+    print(f"\nReach correction c(W) = c0 + k*W, {how}:")
+    print(f"  current  c0 = {model.reachCorrection:g}  k = {model.reachPerHeight:g}")
+    print(f'  new      "reachCorrection_mm": {c0:.1f}, "reachCorrectionPerHeight": {k:.3f}')
 
     thetas = [p[0] for p in points]
     if n >= 2 and max(thetas) - min(thetas) >= MIN_FIT_SPREAD_deg:
@@ -557,7 +662,10 @@ def main():
                         help=f"move speed, deg/s (default {DEFAULT_SPEED_degps:g})")
     parser.add_argument("--dry-run", action="store_true", help="print the plan, don't move")
     parser.add_argument("--fit", action="store_true",
-                        help="refit the base servo from logs/tag_reach_trials.csv")
+                        help="refit the base servo and reach correction from logs/tag_reach_trials.csv")
+    parser.add_argument("--since", metavar="TIME",
+                        help="--fit: only use trials logged at or after this ISO time, "
+                             "e.g. 2026-10-15T10:25")
     parser.add_argument("--webcam", type=int, metavar="TAG_ID",
                         help="loop: webcam photo -> locate this tag in MATLAB -> move -> measure")
     parser.add_argument("--camera", type=int, default=DEFAULT_CAMERA,
@@ -572,7 +680,7 @@ def main():
     model = ReachModel(cfg, Kinematics(joints, loadCalibration(cfg["servoCalibration"])))
     selfCheck(model)
     if args.fit:
-        runFit(model)
+        runFit(model, args.since)
     elif args.webcam is not None:
         runWebcam(args, model)
     else:
