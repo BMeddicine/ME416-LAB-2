@@ -1,0 +1,25 @@
+{
+  "_notes": [
+    "Per-arm config (Bryson's arm). Lengths in mm, angles in deg. null = not measured yet.",
+    "Arm frame: r = outward along the arm's plane, s = 90 deg CCW from r seen from above, z = up.",
+    "shoulderOffset_mm = [r, s, z] of the shoulder A from the base origin (base axis, plate level): t1 of the FK.",
+    "toolOffset_mm = [r, s, z] from the forearm end I to the tool point, in the arm frame (end plate assumed level).",
+    "baseFit: base servo s1 = a * theta0 + b, theta0 = direction of +r from +U toward +V (CCW from above). b = servo angle with the arm along +U.",
+    "baseFit from servo_angle_gui.py joint 1 points (2026-10-14): s = 58.5 at +U, 146.3 at +V, 237.2 at -U; a = +0.9939, b = 57.81, rms 0.90 deg. Refine with move_to_tag.py --fit.",
+    "2026-10-15: b 57.81 -> 53.52 (b-only shift) from 4 tag 2 reach trials that all landed ~4.3 deg CCW; a kept until trials span more base angles.",
+    "Joints 2 and 3 are fit from servoCalibration (same file as tools/ik_gui.py).",
+    "reachCorrection_mm: the tool landed this much short along r in the reach trials; I is sent this much further out. move_to_tag.py --fit reports the measured value."
+  ],
+
+  "name": "BRYSON",
+  "servoCalibration": "logs/servo_angle_points_corrected.csv",
+
+  "shoulderOffset_mm": [13.4, -16.15, 55.175],
+  "toolOffset_mm": [27.724, 12.5, -32.912],
+
+  "baseFit": { "a": 0.9939, "b": 53.52 },
+
+  "minToolHeight_mm": 0,
+
+  "reachCorrection_mm": 0.0
+}

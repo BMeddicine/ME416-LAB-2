@@ -37,6 +37,10 @@ Each run also writes two files to `logs/`:
 - `scene_<time>.json`: the full result, for the Problem 2 table and the report
 - `scene_<time>.jpg`: the annotated photo (see [Checking the result](#checking-the-result))
 
+### Reach test: one tag only
+
+`locateTagTarget(id)` needs only the base tag and the tag with that ID in the photo. It writes `logs/tagtarget_<time>.json` for `tools/move_to_tag.py` (see [tools/README.md](../../tools/README.md#reach-test-move_to_tagpy)). Options: `TargetHeight_mm=`, `LayoutPath=`, `Save=`, `Show=`.
+
 ## Using the result
 
 ```matlab
@@ -162,7 +166,7 @@ The printed numbers matter too:
 - catches a wrong tag height
 - catches an unfilled layout value
 
-All 9 tests pass. The full photo path was also run on a real tag photo from HW4. That run checked the code end to end, not accuracy, since that photo was not taken with the calibrated lens.
+All 10 tests pass (including `solveTagTarget` with only the base tag and one other tag). The full photo path was also run on a real tag photo from HW4. That run checked the code end to end, not accuracy, since that photo was not taken with the calibrated lens.
 
 ## Not done yet
 

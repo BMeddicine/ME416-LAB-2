@@ -134,6 +134,72 @@ Marks are saved to `logs/ik_limit_marks.csv` (r, z, all three servo angles, time
 
 ---
 
+## Reach test (`move_to_tag.py`)
+
+Drives the tool point to an AprilTag found in a photo, then logs how far it actually landed from the tag. The logged misses give the base servo fit and show how far off the reach along the arm is.
+
+### Before the first run
+
+Fill in the `null` values in `config/arm_bryson.json`:
+
+- `shoulderOffset_mm`: `[r, z]` of the shoulder A from the base origin. The base origin is on the base axis at plate level, so z is the shoulder's height above the plate.
+- `baseFit`: a starting guess for `s1 = a·θ0 + b`. θ0 is the direction the arm points, measured from +U toward +V, and +U runs parallel to tag 0's x edge (corner 0 → 1). Get it with `servo_angle_gui.py`: jog joint 1 until the arm points along +U. That servo angle is `b`. Then nudge it up a few degrees. If the arm turns counterclockwise seen from above, `a ≈ +1`; otherwise `a ≈ −1`. The reach test refines both.
+
+`toolOffset_mm = [27.724, 12.5, −32.912]` is the offset from I to the tool point in the arm frame: r outward, s 90° counterclockwise from r seen from above, z up. The end plate is assumed to stay level. The 12.5 mm side offset turns the base by `atan2(12.5, R)` so the tool point, not I, lands on the target.
+
+### Each trial
+
+1. Photo with tag 0 and one other tag on the plate (same photo rules as the vision code). Copy it into `photos/`.
+2. In MATLAB R2024b, from the repo root:
+   ```matlab
+   addpath(genpath('src'))
+   locateTagTarget(5)          % 5 = ID of the target tag; newest photo in photos/
+   ```
+   This writes `logs/tagtarget_<time>.json` and an annotated `.jpg`. Check that the red U / green V axes start at the base axis. If they don't, `baseTag.centerUV_mm` in `config/layout.json` is wrong.
+3. Run the arm:
+   ```
+   python tools/move_to_tag.py --dry-run          # print the plan only
+   python tools/move_to_tag.py --port COM5        # newest tagtarget_*.json
+   ```
+   It moves to 40 mm above the target, then down to `--hover` mm above the tag centre (default 5), and waits until the firmware reports it has arrived. Ctrl+C sends `stop`.
+4. Measure the tool point's miss from the tag centre (actual − desired) along U and V, with the ruler parallel to tag 0's edges. Type `dU dV` (and optionally `dW`). The row is appended to `logs/tag_reach_trials.csv`, then the arm lifts back to the approach point.
+
+Use targets spread over a range of base angles; ±30° or more gives a good slope for the fit.
+
+### Webcam loop
+
+With the webcam (calibrated in `calibration/webcamParams.mat`, 640×480) mounted over the plate, steps 1–4 run in a loop:
+
+```
+python tools/move_to_tag.py --webcam 2 --port COM6 --hover 20
+```
+
+1. A live view opens showing which tags OpenCV sees, and whether tag 0 and the target are both visible. This is only a framing aid. Press **Space** to take the photo, or **Q** to quit.
+2. The frame is saved to `photos/webcam_<time>.png` and passed to `locateTagTarget` in MATLAB R2024b with the webcam calibration. That takes about 20 s, because MATLAB starts fresh each time. It also writes the usual JSON and annotated image to `logs/`.
+3. Confirm, move, measure, as above. Afterwards the arm parks at home, out of the next photo. Move the tag and repeat.
+
+- `--camera` picks the device: 0 is the laptop's own camera, 1 the USB webcam on this PC.
+- `--dry-run` runs the photo and plan steps without moving.
+- Needs `opencv-python` (`pip install opencv-python`).
+- MATLAB has no webcam support package here, so Python does the capture.
+
+### Fitting
+
+```
+python tools/move_to_tag.py --fit
+```
+
+For every measured trial, it recovers the base angle the arm actually reached and splits the miss into:
+
+- **radial**: reach error along the arm. Points to the shoulder offset, the tool offset or the joint 2/3 fits.
+- **tangential**: base angle error × reach. Points to `baseFit`.
+
+It also prints the `reachCorrection_mm` the trials call for. This is how far short along r the tool lands, and the code sends I that much further out. It accounts for the correction each trial was run with. If the per-trial values spread widely, the reach error is a scale error, not a constant offset, so look at the link lengths or the joint 2/3 fits instead.
+
+Then it fits `s1 = a·θ0 + b` from the reached angles (only `b` if they span less than 5°) and prints a `baseFit` line to paste into the arm config.
+
+---
+
 ## Files
 
 | Path | What |
@@ -144,3 +210,7 @@ Marks are saved to `logs/ik_limit_marks.csv` (r, z, all three servo angles, time
 | `logs/servo_angle_points_corrected.csv` | Calibration points used for the current fits |
 | `logs/servo_angle_points_incorrect_joints.csv`, `..._182141.csv`, `..._181529.csv` | Points recorded before the pin swap was fixed (joints 1 and 3 mislabelled) |
 | `logs/ik_limit_marks.csv` | Traced mechanism limit points |
+| `tools/move_to_tag.py` | Reach test: tag photo → tool point → measured miss → base servo fit |
+| `config/arm_bryson.json` | Per-arm geometry (shoulder offset, tool offset) and base servo fit |
+| `src/vision/locateTagTarget.m` | MATLAB: photo → one tag's position in the base frame (`logs/tagtarget_*.json`) |
+| `logs/tag_reach_trials.csv` | Reach test trials: commanded pose, servo values and measured miss |

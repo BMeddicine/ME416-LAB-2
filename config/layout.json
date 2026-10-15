@@ -5,7 +5,8 @@
     "Tag frame: x along detected corner 0 -> corner 1, y 90 deg counterclockwise from x seen from above.",
     "yaw_deg = direction of the tag's x axis in the world frame, measured from +U toward +V.",
     "offsetTag_mm = [x, y] from the tag centre to the point of interest, in the tag frame.",
-    "null = not measured yet. Required values that are null stop the program with a message."
+    "null = not measured yet. Required values that are null stop the program with a message.",
+    "baseTag: measured t_0 (tag 0 centre -> base axis) = [-57.5, 84.5, 0] in tag 0's frame. U, V are taken parallel to tag 0's x, y, so the tag centre is at -t_0 and yaw_deg = 0."
   ],
 
   "calibrationFile": "calibration/iphone-0.5-cameraparams.mat",
@@ -19,8 +20,8 @@
 
   "baseTag": {
     "id": 0,
-    "centerUV_mm": [null, null],
-    "yaw_deg": null,
+    "centerUV_mm": [57.5, -84.5],
+    "yaw_deg": 0,
     "height_mm": 0
   },
 
