@@ -9,7 +9,7 @@ function layout = loadLayout(layoutPath)
 %   Missing required values are checked where they are used (requireValue),
 %   so the error names the exact field.
 
-    if nargin < 1 || isempty(layoutPath)
+    if nargin < 1 || strlength(string(layoutPath)) == 0
         layoutPath = fullfile(repoRoot(), "config", "layout.json");
     end
     layout = jsondecode(fileread(layoutPath));

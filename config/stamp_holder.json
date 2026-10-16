@@ -1,0 +1,210 @@
+{
+  "_notes": [
+    "Stamp holder 'Stamp holder, curved, horn' (OnShape STEP export 2026-10-15). Values extracted from the CAD B-rep, mm / deg.",
+    "Holder frame H: origin = midpoint of the tag 1 and tag 3 centres, dropped to the holder's bottom face (z = 0).",
+    "  +x = tag 1 centre -> tag 3 centre (left -> right seen from the tag side), +y = 90 deg CCW from +x seen from above (toward the wells), +z up.",
+    "  CAD -> H: (x_cad, y_cad + 58.674, z_cad + 2.6).",
+    "Tags sit on pads tilted 9.3 deg, centred on the pads. Only the tag CENTRES are used, so the tags' in-plane rotation does not matter.",
+    "seatXYZ_mm = centre of the ledge the stamp body rests on (the 8x8 recess below it is clearance for the rubber).",
+    "Stamp top = seat + stampHeight_mm (top of the 30 mm body; the CAD stamp also has a ~1.6 mm knob above that, not included).",
+    "radialYaw_deg = rotation of the well's long (radial) axis from H +y toward H +x. Well opening at the rim: rimSize_mm = [tangential, radial].",
+    "otherTagHeight_mm = height of any other tag in the photo (tag 2 by the ink pad), located and saved with the stamps.",
+    "Names: L1..L13 front/lower row, U1..U13 back/upper row, numbered left -> right seen from the tag side."
+  ],
+  "leftTagId": 1,
+  "rightTagId": 3,
+  "tagCenterHeight_mm": 5.5,
+  "otherTagHeight_mm": 0,
+  "tagBaseline_mm": 105.347,
+  "baselineTolerance_mm": 3.0,
+  "tagNormals": {
+    "left": [0.1004, -0.1265, 0.9869],
+    "right": [-0.1004, -0.1265, 0.9869]
+  },
+  "stampHeight_mm": 30.0,
+  "rimSize_mm": [15.18, 17.2],
+  "stamps": [
+    {
+      "name": "L1",
+      "row": "lower",
+      "seatXYZ_mm": [-92.95, 17.252, 2.6],
+      "radialYaw_deg": -48.04,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L2",
+      "row": "lower",
+      "seatXYZ_mm": [-80.403, 29.384, 2.6],
+      "radialYaw_deg": -40.03,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L3",
+      "row": "lower",
+      "seatXYZ_mm": [-66.288, 39.65, 2.6],
+      "radialYaw_deg": -32.03,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L4",
+      "row": "lower",
+      "seatXYZ_mm": [-50.881, 47.85, 2.6],
+      "radialYaw_deg": -24.02,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L5",
+      "row": "lower",
+      "seatXYZ_mm": [-34.482, 53.824, 2.6],
+      "radialYaw_deg": -16.01,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L6",
+      "row": "lower",
+      "seatXYZ_mm": [-17.411, 57.456, 2.6],
+      "radialYaw_deg": -8.01,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L7",
+      "row": "lower",
+      "seatXYZ_mm": [0.0, 58.674, 2.6],
+      "radialYaw_deg": 0.0,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L8",
+      "row": "lower",
+      "seatXYZ_mm": [17.411, 57.456, 2.6],
+      "radialYaw_deg": 8.01,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L9",
+      "row": "lower",
+      "seatXYZ_mm": [34.482, 53.824, 2.6],
+      "radialYaw_deg": 16.01,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L10",
+      "row": "lower",
+      "seatXYZ_mm": [50.881, 47.85, 2.6],
+      "radialYaw_deg": 24.02,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L11",
+      "row": "lower",
+      "seatXYZ_mm": [66.288, 39.65, 2.6],
+      "radialYaw_deg": 32.03,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L12",
+      "row": "lower",
+      "seatXYZ_mm": [80.403, 29.384, 2.6],
+      "radialYaw_deg": 40.03,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "L13",
+      "row": "lower",
+      "seatXYZ_mm": [92.95, 17.252, 2.6],
+      "radialYaw_deg": 48.04,
+      "rimZ_mm": 22.6
+    },
+    {
+      "name": "U1",
+      "row": "upper",
+      "seatXYZ_mm": [-108.39, 31.134, 16.6],
+      "radialYaw_deg": -48.04,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U2",
+      "row": "upper",
+      "seatXYZ_mm": [-93.759, 45.282, 16.6],
+      "radialYaw_deg": -40.03,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U3",
+      "row": "upper",
+      "seatXYZ_mm": [-77.299, 57.253, 16.6],
+      "radialYaw_deg": -32.03,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U4",
+      "row": "upper",
+      "seatXYZ_mm": [-59.333, 66.815, 16.6],
+      "radialYaw_deg": -24.02,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U5",
+      "row": "upper",
+      "seatXYZ_mm": [-40.21, 73.782, 16.6],
+      "radialYaw_deg": -16.01,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U6",
+      "row": "upper",
+      "seatXYZ_mm": [-20.303, 78.017, 16.6],
+      "radialYaw_deg": -8.01,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U7",
+      "row": "upper",
+      "seatXYZ_mm": [0.0, 79.437, 16.6],
+      "radialYaw_deg": 0.0,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U8",
+      "row": "upper",
+      "seatXYZ_mm": [20.303, 78.017, 16.6],
+      "radialYaw_deg": 8.01,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U9",
+      "row": "upper",
+      "seatXYZ_mm": [40.21, 73.782, 16.6],
+      "radialYaw_deg": 16.01,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U10",
+      "row": "upper",
+      "seatXYZ_mm": [59.333, 66.815, 16.6],
+      "radialYaw_deg": 24.02,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U11",
+      "row": "upper",
+      "seatXYZ_mm": [77.299, 57.253, 16.6],
+      "radialYaw_deg": 32.03,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U12",
+      "row": "upper",
+      "seatXYZ_mm": [93.759, 45.282, 16.6],
+      "radialYaw_deg": 40.03,
+      "rimZ_mm": 36.6
+    },
+    {
+      "name": "U13",
+      "row": "upper",
+      "seatXYZ_mm": [108.39, 31.134, 16.6],
+      "radialYaw_deg": 48.04,
+      "rimZ_mm": 36.6
+    }
+  ]
+}

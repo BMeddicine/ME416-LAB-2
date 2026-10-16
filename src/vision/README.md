@@ -37,6 +37,16 @@ Each run also writes two files to `logs/`:
 - `scene_<time>.json`: the full result, for the Problem 2 table and the report
 - `scene_<time>.jpg`: the annotated photo (see [Checking the result](#checking-the-result))
 
+### Reach test: one tag only
+
+`locateTagTarget(id)` needs only the base tag and the tag with that ID in the photo. It writes `logs/tagtarget_<time>.json` for `tools/move_to_tag.py` (see [tools/README.md](../../tools/README.md#reach-test-move_to_tagpy)). Options: `TargetHeight_mm=`, `LayoutPath=`, `Save=`, `Show=`.
+
+### Stamp holder: tags 1 and 3 -> 26 stamp tops
+
+`locateStampHolder()` needs the base tag and the curved holder's two tags (1 left, 3 right, seen from the tag side). It maps both tag centres at their height (5.5 mm, on pads tilted ~9°), builds the holder frame from them, and applies the CAD offsets in [`config/stamp_holder.json`](../../config/stamp_holder.json) to get every stamp top (seat + 30 mm). It writes `logs/stampholder_<time>.json` and an annotated `.jpg` with each well opening and stamp top drawn. Options: `Calibration=`, `HolderPath=`, `LayoutPath=`, `TagHints=`, `Save=`, `Show=`. Any other tags in the photo (e.g. tag 2 by the ink pad) are located at `otherTagHeight_mm` (default 0) and saved in `tags` with role `"other"`. The JSON also stores `radialDistortion`, so Python can project world points onto the raw photo.
+
+On the real rack `readAprilTag` misses tag 3: the holder tags have only a thin white line between their black border and the black pad, so the border merges into the pad. The Python webcam tools write OpenCV's detections to `photos/<photo>.tags.json` and pass them as `TagHints=`. For any hinted tag the first pass missed, `detectTags` whites out the photo outside the hinted outline and reads it again. Only `readAprilTag`'s corners are used: OpenCV's outline sits on the outer edge of the white line, about 5 px outside the tag's border. With the webcam: `python tools/check_stamp_holder.py`. Each saved stamp also has `topPx`, the stamp top's pixel on the raw photo, which `tools/stamp_hover_gui.py` uses to pick a stamp by clicking on it.
+
 ## Using the result
 
 ```matlab
@@ -144,6 +154,7 @@ The printed numbers matter too:
 | `projectWorldToPixel.m` | world → pixel, optionally with lens distortion (for drawing) |
 | `applyHomography.m` | apply a 3×3 homography to N points |
 | `drawScene.m` | annotated photo |
+| `locateStampHolder.m`, `solveStampHolder.m`, `loadStampHolder.m` | curved stamp holder: tags 1 and 3 -> 26 stamp tops (geometry in `config/stamp_holder.json`) |
 | `loadLayout.m`, `requireValue.m`, `repoRoot.m` | config loading and checks |
 
 ## Tests
@@ -162,7 +173,7 @@ The printed numbers matter too:
 - catches a wrong tag height
 - catches an unfilled layout value
 
-All 9 tests pass. The full photo path was also run on a real tag photo from HW4. That run checked the code end to end, not accuracy, since that photo was not taken with the calibrated lens.
+All 10 tests pass (including `solveTagTarget` with only the base tag and one other tag). The full photo path was also run on a real tag photo from HW4. That run checked the code end to end, not accuracy, since that photo was not taken with the calibrated lens.
 
 ## Not done yet
 

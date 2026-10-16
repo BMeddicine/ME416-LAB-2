@@ -9,7 +9,8 @@ function img = drawScene(photoImg, scene, radialDistortion)
 %     - every target, projected from its own height: stamp discs (cyan),
 %       ink pad (orange), paper (blue), arm tag (white)
 %   World points are projected with lens distortion so they land on the raw
-%   photo pixels.
+%   photo pixels. inkPad and paper may be [] and stamps empty (as from
+%   locateTagTarget); an optional scene.goal (.UVW_mm, .label) is drawn in red.
 
     pose = scene.pose;
     project = @(UVW) projectWorldToPixel(pose, UVW, radialDistortion);
@@ -58,8 +59,15 @@ function img = drawScene(photoImg, scene, radialDistortion)
     end
 
     % ---- Targets
-    img = drawTarget(img, project, scene.inkPad.UVW_mm, "ink", [255 140 0], dotRadius_px, fontSize_pt);
-    img = drawTarget(img, project, scene.paper.UVW_mm, "paper", [30 90 255], dotRadius_px, fontSize_pt);
+    if ~isempty(scene.inkPad)
+        img = drawTarget(img, project, scene.inkPad.UVW_mm, "ink", [255 140 0], dotRadius_px, fontSize_pt);
+    end
+    if ~isempty(scene.paper)
+        img = drawTarget(img, project, scene.paper.UVW_mm, "paper", [30 90 255], dotRadius_px, fontSize_pt);
+    end
+    if isfield(scene, "goal")
+        img = drawTarget(img, project, scene.goal.UVW_mm, scene.goal.label, [255 40 40], dotRadius_px, fontSize_pt);
+    end
     if ~isempty(scene.arm)
         img = drawTarget(img, project, scene.arm.UVW_mm, "arm", [255 255 255], dotRadius_px, fontSize_pt);
     end

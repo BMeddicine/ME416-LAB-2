@@ -127,6 +127,33 @@ function testUnfilledLayoutValue(testCase)
     verifyError(testCase, @() solveScene(tags, layout, testCase.TestData.pose.K, ""), "layout:missingValue");
 end
 
+function testTagTargetFromBaseTagOnly(testCase)
+    % Reach test: only the base tag and one other tag in the photo.
+    layout = testCase.TestData.layout;
+    truth = syntheticTruth(layout);
+    truth = truth(ismember([truth.id], [layout.baseTag.id 99]));
+    tags = renderTags(truth, testCase.TestData.pose, layout, "ccw");
+    result = solveTagTarget(tags, layout, testCase.TestData.pose.K, 99, 0);
+
+    target = truth([truth.id] == 99);
+    verifyEqual(testCase, result.target.UVW_mm, [target.centerUV_mm 0], AbsTol=1e-6);
+    verifyEqual(testCase, result.target.yaw_deg, target.yaw_deg, AbsTol=1e-6);
+    verifyEqual(testCase, result.target.phi_deg, atan2d(target.centerUV_mm(2), target.centerUV_mm(1)), AbsTol=1e-6);
+    verifyLessThan(testCase, result.baseCheck.centerError_mm, 1e-6);
+    verifyTrue(testCase, result.target.sideOk);
+    verifyEmpty(testCase, result.warnings);
+
+    verifyError(testCase, @() solveTagTarget(tags, layout, testCase.TestData.pose.K, 42, 0), "scene:tagNotSeen");
+    verifyError(testCase, @() solveTagTarget(tags, layout, testCase.TestData.pose.K, layout.baseTag.id, 0), ...
+        "tagTarget:sameTag");
+
+    % The annotated image accepts a scene without ink pad, paper or stamps.
+    scene = struct("pose", result.pose, "tags", result.tags, "inkPad", [], "paper", [], ...
+        "arm", [], "stamps", [], "goal", struct("UVW_mm", result.target.UVW_mm, "label", "target 99"));
+    img = drawScene(zeros(800, 1000, 3, "uint8"), scene, []);
+    verifySize(testCase, img, [800 1000 3]);
+end
+
 function testFindHomographyFourPointsExact(testCase)
     planeUV_mm = [0 0; 50 0; 50 50; 0 50];
     Htrue = [2 0.1 300; -0.05 1.9 200; 1e-4 2e-4 1];

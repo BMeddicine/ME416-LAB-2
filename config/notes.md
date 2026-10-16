@@ -1,6 +1,7 @@
 # Config
 
 - **One file per arm** (Bryson's, Aviva's): servo fit (a, b) per joint, fit residual, backlash, joint limits, the name it spells. This is the only thing that changes between the two runs.
+  - `arm_bryson.json` so far: shoulder offset, tool offset from I, base servo fit, and the joint 2/3 calibration CSV. Read by `tools/move_to_tag.py`.
 - **`layout.json`, shared**: everything about the rack, read by `src/vision/loadLayout.m`. `null` means not measured yet.
   - `baseTag`: ID, tag centre `[U, V]` and yaw in the base frame (from OnShape). This tag defines the world frame.
   - `inkPad`, `paper`, `arm`: tag ID, tag height, offset from the tag centre to the point of interest (in the tag's frame), and target height.
