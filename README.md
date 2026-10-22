@@ -17,28 +17,39 @@ The error budget predicts 4.1 mm, dominated by tag corner error and servo-fit re
 
 ## How it works
 
+```mermaid
+flowchart TD
+    cam["USB webcam<br/>640×480, calibrated"]
+    gui["src/stamp_hover_gui.py<br/>(main program)"]
+    vis["vision/locateStampHolder.m<br/>tag 0 → camera pose → H_h per height<br/>tags 1, 3 → holder frame → 26 stamp tops"]
+    json[("logs/stampholder_&lt;time&gt;.json")]
+    user["Click stamps / type a word"]
+    arm["Arm model · config/arm_bryson.json<br/>base angle + two-link IK<br/>shoulder and tool offsets<br/>servo fits s = a·θ + b, reach corrections"]
+    legs["Planned legs<br/>lift → retreat → rotate → extend → grip<br/>→ ink → press → put back → park"]
+    fw["firmware/ (ESP32-S3)<br/>trapezoidal moves, joint limits"]
+    servos(["Servos"])
+
+    cam -- "photo + OpenCV tag hints" --> gui
+    gui -- "matlab -batch" --> vis
+    vis --> json
+    json -- "26 stamp positions" --> gui
+    gui --> user --> arm --> legs
+    legs -- "goto s1 s2 s3<br/>over USB serial" --> fw
+    fw --> servos
+
+    subgraph PC
+        gui
+        vis
+        json
+        user
+        arm
+        legs
+    end
+    subgraph Microcontroller
+        fw
+    end
 ```
-USB webcam (640×480, calibrated)
-   │  photo + OpenCV tag hints
-   ▼
-src/stamp_hover_gui.py ──matlab -batch──► vision/locateStampHolder.m
-   │                                         tag 0 → camera pose → H_h per height
-   │                                         tags 1, 3 → holder frame → 26 stamp tops (CAD offsets)
-   │  ◄── logs/stampholder_<time>.json ──────┘
-   ▼
-click stamps / type a word
-   │
-   ▼
-Arm model (config/arm_bryson.json)
-   base angle + two-link IK, shoulder and tool offsets,
-   calibrated servo fits s = a·θ + b, reach corrections
-   │
-   ▼
-legs: lift → retreat → rotate → extend → grip → ink → press → put back → park
-   │  "goto s1 s2 s3" over USB serial
-   ▼
-firmware/ (ESP32-S3): trapezoidal moves, joint limits ──► servos
-```
+
 
 The PC does the vision and kinematics; the microcontroller only runs smooth servo moves on command. The PC has MATLAB's AprilTag detector and the calibration, and every intermediate result (JSON, annotated photo, logs) can be inspected there.
 
