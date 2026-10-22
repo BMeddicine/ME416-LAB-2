@@ -1,14 +1,21 @@
-# Arm tools: firmware, servo calibration and IK
+# Python program: stamping GUI and calibration tools
 
-Two desktop GUIs and the ESP32 firmware they talk to. Together they take an arm from "servos wired up" to "drag the end point and the arm follows":
+This is the program that ran the arm. **`stamp_hover_gui.py` is the main program**: it takes a webcam photo, has MATLAB locate the 26 stamps, and picks, inks, presses and returns each stamp of a word. The other scripts are the tools used to calibrate the arm first, and the main GUI imports its serial link, kinematics and arm model from them.
 
-1. **Firmware** (`firmware/`) drives the three servos with smooth, limited moves and takes text commands over USB serial.
-2. **Servo angle GUI** (`tools/servo_angle_gui.py`) finds the servo fit `s = a·θ + b` for each joint.
-3. **IK GUI** (`tools/ik_gui.py`) uses those fits to move the arm by its end point in the (r, z) plane, and records where the real mechanism collides.
+| Script | Role |
+|---|---|
+| `stamp_hover_gui.py` | **Main program.** Webcam photo → stamp positions → pick & return, stamp job, stamp a word |
+| `servo_angle_gui.py` | Calibration step 1: joint sliders, servo fit `s = a·θ + b` per joint. Also holds the shared `SerialLink` |
+| `ik_gui.py` | Calibration step 2: move the arm by its end point in the (r, z) plane, trace collision limits. Also holds the shared `Kinematics` |
+| `move_to_tag.py` | Calibration step 3: drive the tool point to a tag, log the miss, fit the base servo and reach correction. Also holds the shared `Arm` model |
+| `check_stamp_holder.py` | Vision check without the arm: webcam photo → `locateStampHolder` → annotated image |
+
+All of them talk to the ESP32 firmware in `firmware/` over USB serial and call the MATLAB code in `vision/` for anything that needs a photo located.
 
 ## Setup
 
-- Python 3 with `pyserial` (`pip install pyserial`). Tkinter comes with the standard Windows Python install.
+- Python 3 with `pyserial`, `opencv-python` and `numpy` (`pip install pyserial opencv-python numpy`). Tkinter comes with the standard Windows Python install.
+- MATLAB R2024b with the Computer Vision Toolbox, for the photo steps. The path is `DEFAULT_MATLAB` in `move_to_tag.py` (or pass `--matlab`).
 - PlatformIO (VS Code extension) to build and upload the firmware.
 - Only one program can hold the serial port. Close the PlatformIO serial monitor (Ctrl+C in its terminal, or the trash icon on its tab) and the other GUI before connecting.
 
@@ -57,7 +64,7 @@ Hobby servos can't report where they are. The firmware saves the last pose to fl
 ## Servo angle GUI (`servo_angle_gui.py`)
 
 ```
-python tools/servo_angle_gui.py
+python src/servo_angle_gui.py
 ```
 
 Use it to find, for each joint, the servo angle at which the link points along +r, plus the scale factor `a`.
@@ -90,7 +97,7 @@ From `logs/servo_angle_points_corrected.csv`:
 ## IK GUI (`ik_gui.py`)
 
 ```
-python tools/ik_gui.py [calibration.csv]
+python src/ik_gui.py [calibration.csv]
 ```
 
 The calibration CSV defaults to `logs/servo_angle_points_corrected.csv`. You can also load one with the button in the GUI.
@@ -126,11 +133,9 @@ The servo limits don't match where the linkage actually collides. To map the rea
 
 Marks are saved to `logs/ik_limit_marks.csv` (r, z, all three servo angles, time) and reload on start-up. For now they are only drawn on the plot; they don't block moves.
 
-### Not modelled yet
+### Limits of this GUI
 
-- The tool point **P** (offset **d** from I). The GUI moves I.
-- The table: the shaded region extends below z = 0.
-- Linkage collisions, other than through the limit marks.
+The IK GUI moves the forearm end I and doesn't model the tool point, the table or linkage collisions (other than through the limit marks). `move_to_tag.py` and `stamp_hover_gui.py` add the full model: base angle, shoulder and tool offsets from `config/arm_bryson.json`, the reach correction and a minimum tool height.
 
 ---
 
@@ -152,14 +157,14 @@ Fill in the `null` values in `config/arm_bryson.json`:
 1. Photo with tag 0 and one other tag on the plate (same photo rules as the vision code). Copy it into `photos/`.
 2. In MATLAB R2024b, from the repo root:
    ```matlab
-   addpath(genpath('src'))
+   addpath(genpath('vision'))
    locateTagTarget(5)          % 5 = ID of the target tag; newest photo in photos/
    ```
    This writes `logs/tagtarget_<time>.json` and an annotated `.jpg`. Check that the red U / green V axes start at the base axis. If they don't, `baseTag.centerUV_mm` in `config/layout.json` is wrong.
 3. Run the arm:
    ```
-   python tools/move_to_tag.py --dry-run          # print the plan only
-   python tools/move_to_tag.py --port COM5        # newest tagtarget_*.json
+   python src/move_to_tag.py --dry-run          # print the plan only
+   python src/move_to_tag.py --port COM5        # newest tagtarget_*.json
    ```
    It moves to 40 mm above the target, then down to `--hover` mm above the tag centre (default 5), and waits until the firmware reports it has arrived. Ctrl+C sends `stop`.
 4. Measure the tool point's miss from the tag centre (actual − desired) along U and V, with the ruler parallel to tag 0's edges. Type `dU dV` (and optionally `dW`). The row is appended to `logs/tag_reach_trials.csv`, then the arm lifts back to the approach point.
@@ -171,7 +176,7 @@ Use targets spread over a range of base angles; ±30° or more gives a good slop
 With the webcam (calibrated in `calibration/webcamParams.mat`, 640×480) mounted over the plate, steps 1–4 run in a loop:
 
 ```
-python tools/move_to_tag.py --webcam 2 --port COM6 --hover 20
+python src/move_to_tag.py --webcam 2 --port COM6 --hover 20
 ```
 
 1. A live view opens showing which tags OpenCV sees, and whether tag 0 and the target are both visible. This is only a framing aid. Press **Space** to take the photo, or **Q** to quit.
@@ -186,7 +191,7 @@ python tools/move_to_tag.py --webcam 2 --port COM6 --hover 20
 ### Fitting
 
 ```
-python tools/move_to_tag.py --fit [--since 2026-10-15T10:25]
+python src/move_to_tag.py --fit [--since 2026-10-15T10:25]
 ```
 
 `--since` limits the fit to trials logged at or after that time, for example to leave out trials measured less carefully.
@@ -207,8 +212,8 @@ Then it fits `s1 = a·θ0 + b` from the reached angles (only `b` if they span le
 Takes one webcam photo of the curved stamp holder and finds all 26 stamp tops with MATLAB. Click a stamp and the arm picks it up with the magnet, then puts it back in its well.
 
 ```
-python tools/stamp_hover_gui.py --port COM6                 # live view first
-python tools/stamp_hover_gui.py logs/stampholder_<time>.json --port COM6   # reuse a result
+python src/stamp_hover_gui.py --port COM6                 # live view first
+python src/stamp_hover_gui.py logs/stampholder_<time>.json --port COM6   # reuse a result
 ```
 
 1. **Connect**, then **Park (home)** so the arm is out of the shot.
@@ -278,7 +283,7 @@ Geometry and defaults come from [`config/stamp_job.json`](../config/stamp_job.js
 - The whole route is planned before the arm moves. If any letter can't be reached, nothing runs and the log names the letter. The tab also shows the first letter that can't be picked, can't be pressed, or falls off the paper.
 - After each letter is pressed, the paper spot moves on to the next letter's spot, and the Word box drops the letters already done. After a STOP, **Stamp word** carries on with the rest of the word. Check **Carrying a stamp** first: if the arm stopped holding one, put it down. When the word finishes, the box gets the full word back, and the spot is past the last letter.
 
-Each photo also gets `photos/<photo>.tags.json`, OpenCV's tag detections. MATLAB uses them to find holder tags that `readAprilTag` misses on its own (see the vision README).
+Each photo also gets `photos/<photo>.tags.json`, OpenCV's tag detections. MATLAB uses them to find holder tags that `readAprilTag` misses on its own (see [vision/README.md](../vision/README.md)).
 
 Older `stampholder_*.json` files have no `topPx`. For those, the click targets are projected without lens distortion, which puts them a few pixels off near the edges.
 
@@ -288,16 +293,14 @@ Older `stampholder_*.json` files have no `topPx`. For those, the click targets a
 
 | Path | What |
 |---|---|
+| `src/stamp_hover_gui.py` | **Main program.** Stamp holder photo → click a stamp → pick it up and put it back; Stamp job tab: ink it and press it on the paper; stamp a word |
+| `src/servo_angle_gui.py` | Joint sliders and servo-fit data collection; shared serial link |
+| `src/ik_gui.py` | (r, z) IK GUI and limit marks; shared two-link kinematics |
+| `src/move_to_tag.py` | Reach test: tag photo → tool point → measured miss → base servo and reach fits; shared arm model |
+| `src/check_stamp_holder.py` | Webcam photo → `locateStampHolder` → annotated image (no arm) |
 | `firmware/src/main.cpp` | Servo controller, joint table, serial commands |
-| `tools/servo_angle_gui.py` | Joint sliders and servo-fit data collection |
-| `tools/ik_gui.py` | (r, z) IK GUI and limit marks (imports `SerialLink` and helpers from `servo_angle_gui.py`) |
-| `logs/servo_angle_points_corrected.csv` | Calibration points used for the current fits |
-| `logs/servo_angle_points_incorrect_joints.csv`, `..._182141.csv`, `..._181529.csv` | Points recorded before the pin swap was fixed (joints 1 and 3 mislabelled) |
-| `logs/ik_limit_marks.csv` | Traced mechanism limit points |
-| `tools/move_to_tag.py` | Reach test: tag photo → tool point → measured miss → base servo fit |
-| `config/arm_bryson.json` | Per-arm geometry (shoulder offset, tool offset) and base servo fit |
-| `src/vision/locateTagTarget.m` | MATLAB: photo → one tag's position in the base frame (`logs/tagtarget_*.json`) |
-| `logs/tag_reach_trials.csv` | Reach test trials: commanded pose, servo values and measured miss |
-| `tools/check_stamp_holder.py` | Webcam photo → `locateStampHolder` → annotated image (no arm) |
-| `tools/stamp_hover_gui.py` | Stamp holder photo → click a stamp → magnet picks it up and puts it back; Stamp job tab: ink it and press it on the paper |
-| `config/stamp_job.json` | Ink pad offset from tag 2, paper edge from tag 0, press defaults |
+| `vision/locateStampHolder.m` | MATLAB: photo → 26 stamp tops in the base frame (`logs/stampholder_*.json`) |
+| `vision/locateTagTarget.m` | MATLAB: photo → one tag's position in the base frame (`logs/tagtarget_*.json`) |
+| `config/arm_bryson.json` | Per-arm geometry (shoulder offset, tool offset), base servo fit and reach corrections |
+| `config/stamp_holder.json`, `config/stamp_job.json` | Holder geometry from CAD; ink pad offset from tag 2, paper edge from tag 0, press defaults |
+| `logs/` | Calibration points, limit marks, reach trials and stamp offsets (see [logs/README.md](../logs/README.md)) |
