@@ -8,8 +8,8 @@ function result = solveTagTarget(tags, layout, K, targetId, targetHeight_mm)
 %     targetId         ID of the tag to locate
 %     targetHeight_mm  height of that tag above the plate (default 0)
 %
-%   A reduced solveScene for reach tests: only the base tag and the target
-%   tag need to be in the photo (no ink pad, paper or holders). Fields:
+%   For reach tests: only the base tag and the target tag need to be in
+%   the photo. Fields:
 %     pose        camera pose and table homography (estimateTablePose)
 %     tags        the base and target tags located at their heights, with
 %                 .role ("base" / "target"), for drawScene

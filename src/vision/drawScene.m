@@ -6,11 +6,10 @@ function img = drawScene(photoImg, scene, radialDistortion)
 %     - a 50 mm grid on the table plane W = 0 (yellow), with the U axis red
 %       and the V axis green from the base axis. If the grid lines up with
 %       the plate edges, the base frame is right.
-%     - every target, projected from its own height: stamp discs (cyan),
-%       ink pad (orange), paper (blue), arm tag (white)
-%   World points are projected with lens distortion so they land on the raw
-%   photo pixels. inkPad and paper may be [] and stamps empty (as from
-%   locateTagTarget); an optional scene.goal (.UVW_mm, .label) is drawn in red.
+%     - an optional scene.goal (.UVW_mm, .label) in red, projected from
+%       its own height (locateTagTarget's target)
+%   scene needs .pose and .tags. World points are projected with lens
+%   distortion so they land on the raw photo pixels.
 
     pose = scene.pose;
     project = @(UVW) projectWorldToPixel(pose, UVW, radialDistortion);
@@ -58,21 +57,9 @@ function img = drawScene(photoImg, scene, radialDistortion)
             "TextColor", "white", "BoxColor", color, "BoxOpacity", 0.6, "AnchorPoint", "Center");
     end
 
-    % ---- Targets
-    if ~isempty(scene.inkPad)
-        img = drawTarget(img, project, scene.inkPad.UVW_mm, "ink", [255 140 0], dotRadius_px, fontSize_pt);
-    end
-    if ~isempty(scene.paper)
-        img = drawTarget(img, project, scene.paper.UVW_mm, "paper", [30 90 255], dotRadius_px, fontSize_pt);
-    end
+    % ---- Target
     if isfield(scene, "goal")
         img = drawTarget(img, project, scene.goal.UVW_mm, scene.goal.label, [255 40 40], dotRadius_px, fontSize_pt);
-    end
-    if ~isempty(scene.arm)
-        img = drawTarget(img, project, scene.arm.UVW_mm, "arm", [255 255 255], dotRadius_px, fontSize_pt);
-    end
-    for s = scene.stamps
-        img = drawTarget(img, project, s.disc_UVW_mm, s.letter, [0 220 255], dotRadius_px, fontSize_pt);
     end
 end
 

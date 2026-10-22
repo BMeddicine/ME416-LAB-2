@@ -3,8 +3,6 @@ function layout = loadLayout(layoutPath)
 %   layout = loadLayout(layoutPath) decodes the JSON file and normalizes it:
 %     - JSON null becomes NaN (scalar) or NaN entries (arrays), so a value
 %       that has not been measured yet is always isnan, never empty
-%     - stampHolders is always a struct array (jsondecode returns a cell
-%       array when entries have differing fields)
 %     - vectors are rows
 %   Missing required values are checked where they are used (requireValue),
 %   so the error names the exact field.
@@ -15,14 +13,7 @@ function layout = loadLayout(layoutPath)
     layout = jsondecode(fileread(layoutPath));
     layout = normalize(layout);
 
-    if iscell(layout.stampHolders)
-        layout.stampHolders = [layout.stampHolders{:}];
-    end
-    for k = 1:numel(layout.stampHolders)
-        layout.stampHolders(k).letter = upper(char(layout.stampHolders(k).letter));
-    end
     layout.tagCornerWinding = lower(char(layout.tagCornerWinding));
-    layout.holderSource = lower(char(layout.holderSource));
     layout.layoutPath = string(layoutPath);
 end
 

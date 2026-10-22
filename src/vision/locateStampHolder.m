@@ -49,7 +49,7 @@ function result = locateStampHolder(photoPath, options)
     intrinsics = loadIntrinsics(resolvePath(root, calibrationFile));
     photoSize = [size(photoImg, 1), size(photoImg, 2)];
     if ~isequal(photoSize, intrinsics.ImageSize)
-        error("locateScene:imageSize", ...
+        error("vision:imageSize", ...
             "Photo is %dx%d (rows x cols) but the calibration is %dx%d. Use the same camera and resolution as the calibration.", ...
             photoSize, intrinsics.ImageSize);
     end
@@ -61,7 +61,7 @@ function result = locateStampHolder(photoPath, options)
     end
     tags = detectTags(photoImg, layout.tagFamily, intrinsics, hints);
     if isempty(tags)
-        error("locateScene:noTags", "No %s tags found in %s.", layout.tagFamily, photoPath);
+        error("vision:noTags", "No %s tags found in %s.", layout.tagFamily, photoPath);
     end
     result = solveStampHolder(tags, layout, intrinsics.K, holder);
     result.photoPath = string(photoPath);
@@ -73,8 +73,7 @@ function result = locateStampHolder(photoPath, options)
 
     % ---- Outputs
     if options.Save || options.Show
-        scene = struct("pose", result.pose, "tags", result.tags, "inkPad", [], "paper", [], ...
-            "arm", [], "stamps", []);
+        scene = struct("pose", result.pose, "tags", result.tags);
         annotatedImg = drawScene(photoImg, scene, intrinsics.RadialDistortion);
         annotatedImg = drawHolder(annotatedImg, result, intrinsics.RadialDistortion);
     end
@@ -183,7 +182,7 @@ function photoPath = newestPhoto(photoDir)
              dir(fullfile(photoDir, "*.png"))];
     files = files(~startsWith({files.name}, "."));
     if isempty(files)
-        error("locateScene:noPhoto", "No .jpg/.jpeg/.png photo in %s.", photoDir);
+        error("vision:noPhoto", "No .jpg/.jpeg/.png photo in %s.", photoDir);
     end
     [~, newest] = max([files.datenum]);
     photoPath = string(fullfile(files(newest).folder, files(newest).name));

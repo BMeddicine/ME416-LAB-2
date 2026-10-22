@@ -12,7 +12,7 @@ function result = locateTagTarget(targetId, photoPath, options)
 %
 %   For reach tests: tools/move_to_tag.py reads the newest tagtarget_*.json
 %   and drives the tool point to the tag centre. Only the base tag and the
-%   target tag need to be in the photo. Same photo rules as locateScene.
+%   target tag need to be in the photo.
 %
 %   See solveTagTarget for the fields of result.
 
@@ -29,7 +29,7 @@ function result = locateTagTarget(targetId, photoPath, options)
     root = repoRoot();
     layout = loadLayout(options.LayoutPath);
 
-    % ---- Photo and calibration (same checks as locateScene)
+    % ---- Photo and calibration
     if photoPath == ""
         photoPath = newestPhoto(resolvePath(root, layout.photoDir));
     end
@@ -45,7 +45,7 @@ function result = locateTagTarget(targetId, photoPath, options)
         if isequal(photoSize, fliplr(intrinsics.ImageSize))
             hint = " The photo was rotated (EXIF applied) somewhere during transfer; send the original file.";
         end
-        error("locateScene:imageSize", ...
+        error("vision:imageSize", ...
             "Photo is %dx%d (rows x cols) but the calibration is %dx%d. Use the same camera and resolution as the calibration.%s", ...
             photoSize, intrinsics.ImageSize, hint);
     end
@@ -53,7 +53,7 @@ function result = locateTagTarget(targetId, photoPath, options)
     % ---- Detect and solve
     tags = detectTags(photoImg, layout.tagFamily, intrinsics);
     if isempty(tags)
-        error("locateScene:noTags", "No %s tags found in %s.", layout.tagFamily, photoPath);
+        error("vision:noTags", "No %s tags found in %s.", layout.tagFamily, photoPath);
     end
     result = solveTagTarget(tags, layout, intrinsics.K, targetId, options.TargetHeight_mm);
     result.photoPath = string(photoPath);
@@ -65,9 +65,8 @@ function result = locateTagTarget(targetId, photoPath, options)
 
     % ---- Outputs
     if options.Save || options.Show
-        scene = struct("pose", result.pose, "tags", result.tags, "inkPad", [], "paper", [], ...
-            "arm", [], "stamps", [], "goal", struct("UVW_mm", result.target.UVW_mm, ...
-            "label", sprintf("target %d", targetId)));
+        scene = struct("pose", result.pose, "tags", result.tags, "goal", ...
+            struct("UVW_mm", result.target.UVW_mm, "label", sprintf("target %d", targetId)));
         annotatedImg = drawScene(photoImg, scene, intrinsics.RadialDistortion);
     end
     if options.Save
@@ -118,7 +117,7 @@ function photoPath = newestPhoto(photoDir)
              dir(fullfile(photoDir, "*.png"))];
     files = files(~startsWith({files.name}, "."));
     if isempty(files)
-        error("locateScene:noPhoto", "No .jpg/.jpeg/.png photo in %s.", photoDir);
+        error("vision:noPhoto", "No .jpg/.jpeg/.png photo in %s.", photoDir);
     end
     [~, newest] = max([files.datenum]);
     photoPath = string(fullfile(files(newest).folder, files(newest).name));
