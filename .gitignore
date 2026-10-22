@@ -10,3 +10,6 @@ __pycache__/
 # Per-run vision snapshots from the tag-reach and stamp-holder trials
 logs/tagtarget_*
 logs/stampholder_*
+
+# Result video is over GitHub's 100 MB file limit; shared separately
+docs/*.mov
