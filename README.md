@@ -1,163 +1,106 @@
 # ME416 Lab 2: Vision-Guided Stamp Machine
 
-A RASTICrane (3-joint arm) bolted to the stamp rack spells a name, one letter at a time: it picks a rubber stamp from its holder, inks it, presses it onto the paper, then puts it back in its holder and wipes the magnet off. An overhead camera finds the stamps, ink pad and paper from AprilTags; nothing is measured by hand at run time.
+A RASTICrane (3-joint hobby-servo arm) bolted next to a curved stamp holder stamps letters onto paper. A webcam over the plate finds the holder from AprilTags. The arm then picks a rubber stamp up with a magnet, inks it, presses it onto the paper and slides it back into its well. Nothing about the stamp positions is measured by hand at run time.
 
-The task is run **twice**, once with each teammate's arm on the same rack, each spelling its owner's name. The code and layout stay the same; only the per-arm config file changes.
+The full write-up is in [`docs/Robotics_Lab_2_Report.pdf`](docs/Robotics_Lab_2_Report.pdf).
 
-> **Status:** in progress. Hard deadline: **Tue Oct 13, midnight**.
+## Results
+
+| Arm | Letters | Average miss |
+|---|---|---|
+| Bryson's | B, R, Y | 5.29 mm (4.88, 5.81, 5.19) |
+| Aviva's | A | 19.7 mm (not fully calibrated in the time available) |
+
+The error budget predicts 4.1 mm, dominated by tag corner error and servo-fit residual (report, section C).
 
 ---
 
 ## How it works
 
 ```
-Phone photo (iPhone, 0.5x lens, copied into photos/)
+USB webcam (640×480, calibrated)
+   │  photo + OpenCV tag hints
+   ▼
+src/stamp_hover_gui.py ──matlab -batch──► vision/locateStampHolder.m
+   │                                         tag 0 → camera pose → H_h per height
+   │                                         tags 1, 3 → holder frame → 26 stamp tops (CAD offsets)
+   │  ◄── logs/stampholder_<time>.json ──────┘
+   ▼
+click stamps / type a word
    │
    ▼
-AprilTag detection ──► tag corners, undistorted with the calibration
+Arm model (config/arm_bryson.json)
+   base angle + two-link IK, shoulder and tool offsets,
+   calibrated servo fits s = a·θ + b, reach corrections
    │
    ▼
-Base tag (+ optional OnShape holder tags) ──► H ──► camera pose R, t via K
-   │
+legs: lift → retreat → rotate → extend → grip → ink → press → put back → park
+   │  "goto s1 s2 s3" over USB serial
    ▼
-H_h = K[r1 r2 (h·r3 + t)] per tag height ──► every tag's [U, V] and yaw
-   │
-   ▼
-Targets [U, V, W]: tag position + offset in the tag's frame (e.g. tag → disc)
-   │
-   ▼
-Motion sequencer, per letter:
-   pick stamp → lift → ink → press on arc → return to holder → wipe outward (release)
-   │
-   ▼
-Inverse kinematics (rasticraneIk) ──► joint angles θ
-   │
-   ▼
-Servo fit (s = aθ + b, per joint, per arm) ──► servo commands s
-   │
-   ▼
-MQTT publish ──► arm
+firmware/ (ESP32-S3): trapezoidal moves, joint limits ──► servos
 ```
 
-Detection and homography run on the PC; the microcontroller only receives servo commands over MQTT. (The PC vs microcontroller choice is justified in the report.)
-
-Letters go on an arc at a fixed ρ from the base, with ϕ increasing per letter. Each letter comes out rotated by the yaw it was pressed at.
-
----
+The PC does the vision and kinematics; the microcontroller only runs smooth servo moves on command. The PC has MATLAB's AprilTag detector and the calibration, and every intermediate result (JSON, annotated photo, logs) can be inspected there.
 
 ## Repository layout
 
 ```
 .
-├── config/           # layout.json (shared rack layout) + one file per arm (see config/notes.md)
-├── calibration/      # iPhone 0.5x camera calibration (cameraParams .mat)
-├── photos/           # drop the rack photo here (not committed)
-├── src/
-│   ├── main.m        # loads configs, locates the rack, spells the name
-│   ├── vision/       # photo → tag poses → targets in the base frame (locateScene.m)
-│   ├── kinematics.m  # rasticraneIk, joint limits
-│   ├── control.m     # servo fit θ → s, sending commands to the arm
-│   ├── sequence.m    # pick / ink / press / return / wipe
-│   └── logging.m     # Problem 2 table
-├── tests/            # synthetic tests for src/vision
-├── firmware/         # ESP32-S3 servo controller (PlatformIO)
-├── tools/            # servo angle calibration GUI
-├── logs/             # scene logs + annotated images, Problem 2 table output
-├── report/           # videos, sheet scans, figures, report
-└── README.md
+├── src/          # Python program: stamp_hover_gui.py (main) + calibration tools   → src/README.md
+├── vision/       # MATLAB: photo → stamp tops / tag position in the base frame       → vision/README.md
+├── firmware/     # ESP32-S3 servo controller (PlatformIO); documented in src/README.md
+├── config/       # arm calibration, tag layout, stamp holder CAD, stamp job defaults → config/README.md
+├── calibration/  # webcam calibration (used) and iPhone calibration (first plan)    → calibration/README.md
+├── tests/        # synthetic MATLAB tests for vision/
+├── logs/         # calibration points and trial records                             → logs/README.md
+├── photos/       # webcam photos land here (not committed)
+└── docs/         # report and Q&A (the result video is too large for GitHub)
 ```
-
-Only the per-arm config changes between runs. Everything about the rack lives in the shared layout file.
-
----
 
 ## Setup
 
-<!-- TODO: fill in dependencies, build steps and broker details -->
+- **Python 3** with `pip install pyserial opencv-python numpy` (Tkinter ships with the Windows installer).
+- **MATLAB R2024b** with the Computer Vision Toolbox. The Python tools call `C:\Program Files\MATLAB\R2024b\bin\matlab.exe` by default (`--matlab` to change it).
+- **PlatformIO** (VS Code extension) to build and upload `firmware/`.
+- Only one program can hold the serial port, so close the PlatformIO monitor and any other GUI first.
 
-MATLAB (same language as HW1). Needs the Computer Vision Toolbox (`readAprilTag`, `undistortPoints`, `insertShape`). On this PC it is installed in **R2024b**, not R2025b.
+## Calibrating an arm
 
-1. Camera calibration: done (`calibration/iphone-0.5-cameraparams.mat`, 0.31 px mean reprojection error).
-2. Fill in the `null` values in `config/layout.json` (tag IDs, base tag offset and yaw from the base axis, tag → disc offset, heights). The program stops and names any required value that is still `null`.
-3. Place the ink pad and paper by hand anywhere on the plate.
-4. Confirm how commands reach the arm (broker address and topic, if MQTT).
+Done once per arm, in this order (details in [src/README.md](src/README.md)):
 
-### Taking the photo
+1. **Firmware**: set the joint table (`kJoints` in `firmware/src/main.cpp`) and upload it.
+2. **Servo fits**: `python src/servo_angle_gui.py`. Record each joint at known angles to get `s = a·θ + b`.
+3. **IK check**: `python src/ik_gui.py`. Drag the end point, and mark where the real linkage collides.
+4. **Reach trials**: `python src/move_to_tag.py --webcam <tag> --port COMx`. Measure each miss, then `--fit` for the base servo fit and the reach correction. Paste the result into `config/arm_bryson.json`.
+5. **Stamp centring**: in the main GUI's Position check, hover over stamps and jog until centred. The recorded offsets (`logs/stamp_offsets.csv`) give the per-angle base and reach corrections.
 
-- iPhone main camera app at **0.5x**, same resolution as the calibration (5712×4284), and JPEG ("Most Compatible" in Settings → Camera → Formats). The code checks the image size and refuses a photo taken with another lens or setting.
-- Base tag, every holder tag, ink pad tag and paper tag all in frame. Hold roughly overhead.
-- Copy the original file into `photos/`. The newest file is used. The program reads it the same way calibration did, ignoring the EXIF rotation, so don't rotate or edit it.
-
-**Code style:** camelCase, with a unit suffix where it helps (`targetYaw_deg`, `sampleTime_ms`).
-
-## Running
-
-Locate the rack (vision only, for now):
-
-```matlab
-addpath(genpath('src'))
-scene = locateScene(RequiredLetters="BRYSON");   % newest photo in photos/
-```
-
-This prints every target ([U, V, W], ρ, ϕ, yaw) and writes `logs/scene_<time>.json` plus an annotated `.jpg`. In the image, the yellow 50 mm grid and the red U / green V axes are the base frame drawn back onto the photo. If they don't line up with the plate, the base tag offset or yaw in the layout is wrong. Tags outlined in red failed the side-length check, which usually means the wrong `height_mm` for that tag.
-
-Tests: `matlab -batch "addpath(genpath('src')); runtests('tests')"` (use the R2024b `matlab.exe`).
+## Stamping a word
 
 ```
-TODO: full run command, with the arm's config file as an argument
+python src/stamp_hover_gui.py --port COM6
 ```
 
-1. Run with Bryson's arm mounted and its config.
-2. Swap the arm on the rack and run with Aviva's config. No code or layout changes.
-3. Relocation clip (either arm): move the paper and ink pad, run again for at least two letters.
+1. **Connect**, then **Park** so the arm is out of the shot. **Take photo**: MATLAB locates the holder (about 20 s), and the stamps appear as clickable rings.
+2. On the **Stamp job** tab, set the paper spot and letter spacing, and enter the stamps in order (e.g. `L3 U7 L3 U12`) or click them.
+3. **Stamp word**. Each letter is picked, inked, pressed and put back, then the arm parks. The whole route is planned first, and nothing moves if any leg is out of reach.
 
----
+## Safety measures
 
-## Calibration notes
+- Unreachable poses (outside the workspace, the joint limits or below the minimum tool height) are rejected, not clamped.
+- Every move is split so the tool path stays within 1–2 mm of a straight line, and the firmware ramps every move.
+- Base moves always finish turning the same way (with a 5° overshoot), because the base servo stops ~3° apart depending on direction.
+- Travel is at a safe height (or the carry height with a stamp) that clears the holder. The arm pauses before going down so it doesn't swing into a well.
+- **STOP** / **Esc** freezes the arm at any time.
 
-- **Servo fit:** 6–10 points per joint across the working range, approached from both directions. The gap between directions is backlash and is logged separately.
-- **Elbow angle θ₂ is absolute** (measured from horizontal), not relative to the upper arm.
-- **Tool length changes:** the tip is the magnet when empty and the stamp face when loaded. Ink and press heights use the loaded length.
-- **Tag size:** use the measured printed square (nominal 50 mm), not the nominal size.
-- **Stamp disc height:** the disc sits above the plate, so use H_h or account for the parallax.
-- **Stamp holder positions:** from the OnShape document or from their tags; the choice is justified in the report.
+## Tests
 
-## Safety
+```
+"C:\Program Files\MATLAB\R2024b\bin\matlab.exe" -batch "addpath(genpath('vision')); runtests('tests')"
+```
 
-- Unreachable targets are rejected, not clamped into a guess.
-- W is clamped above a floor height; stalling a servo into the table can destroy it.
-- Hobby servos report no position, so the code waits after each command and breaks long moves into small steps so a loaded stamp does not swing off the magnet.
-- Transport moves lift high enough that a loaded stamp clears the other holders.
-- The release wipe goes outward along ρ at constant ϕ; any other direction runs the stamp into the side of the holder.
-- Ink pad and paper positions come from tags at run time; nothing is hardcoded.
+## AI use
 
----
-
-## Logging (Problem 2)
-
-For every letter and both arms, one table with:
-
-- Target tag pixel center and the [U, V] computed from it
-- Commanded press [U, V], joint angles θ and servo commands s
-- Landed [U, V], measured with a ruler from the base tag after the run, and the miss in mm
-
-## Error budget
-
-The predicted miss combines, by root-sum-square: camera calibration reprojection error, tag corner error through H, parallax at the disc height, and the servo fit residual (plus backlash and load sag). Base rotation error dominates: 1° at a 200 mm radius is roughly 3.5 mm at the tip. Predicted vs measured results are in the report.
-
----
-
-## Deliverables
-
-- **Video:** one unbroken take per arm, first command to last letter, with arm and paper in frame the whole time; plus a short relocation clip (paper and ink pad moved, at least two letters).
-- **Sheets:** all three stamped sheets, labelled with the arm, base tag position marked, and the miss in mm written next to every letter.
-- **Report** (4 pages max + code and conversation-history annex):
-  - Problem 1 answers
-  - Problem 2 table with the miss for every letter
-  - Error budget: predicted vs measured miss, and which term dominates
-  - Letter orientations compared with Problem 1(b)
-  - Arm-vs-arm comparison of misses, and what the data says about the cause
-  - AI contribution statement: what the model wrote, what we wrote, what we changed
+Claude was used to outline the project from the assignment and to write the Python programs (servo calibration GUI, arm position GUI, vision + stamping GUI). We then tested each one on the arm and iterated with it. See the report's contribution statement.
 
 ## Authors
 

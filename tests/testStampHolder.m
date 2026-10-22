@@ -1,14 +1,14 @@
 function tests = testStampHolder
-%TESTSTAMPHOLDER Synthetic test for solveStampHolder (src/vision).
+%TESTSTAMPHOLDER Synthetic test for solveStampHolder (vision).
 %   The holder tags are rendered on their tilted pads (corners at different
 %   heights), so this also checks that the tilt does not bias the centres.
-%   Run:  addpath(genpath('src')); runtests('tests')
+%   Run:  addpath(genpath('vision')); runtests('tests')
     tests = functiontests(localfunctions);
 end
 
 function setupOnce(testCase)
     root = fileparts(fileparts(mfilename("fullpath")));
-    addpath(genpath(fullfile(root, "src")));
+    addpath(genpath(fullfile(root, "vision")));
     layout = loadLayout(fullfile(root, "config", "layout.json"));
     layout.tagSize_mm = 50;
     layout.tagCornerWinding = 'ccw';

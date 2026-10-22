@@ -1,6 +1,6 @@
 {
   "_notes": [
-    "Stamp job (tools/stamp_hover_gui.py, Stamp job panel): pick a stamp, ink it, press it on the paper, put it back, park. mm / s / deg/s.",
+    "Stamp job (src/stamp_hover_gui.py, Stamp job panel): pick a stamp, ink it, press it on the paper, put it back, park. mm / s / deg/s.",
     "World frame [U, V, W] = arm base frame (see config/layout.json). Contact heights are of the surface the stamp face touches.",
     "Ink pad: centre = tag inkTagId's centre + inkOffsetUVW_mm, in WORLD axes (not the tag's own axes). W is above the tag centre, whose height is otherTagHeight_mm in config/stamp_holder.json.",
     "Paper: lies on the -U side of the robot. Its edge is the line U = (tag 0 centre U) + paperEdgeU_mm, running from V = (tag 0 centre V) + paperCornerV_mm toward +V. The paper covers U below that edge and V above that corner.",

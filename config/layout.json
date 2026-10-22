@@ -1,15 +1,14 @@
 {
   "_notes": [
-    "Shared rack layout, identical for both arms. Lengths in mm, angles in deg.",
+    "Shared rack layout: the camera, the tags and the base tag that defines the world frame. Lengths in mm, angles in deg.",
     "World frame [U, V, W] = arm base frame: origin on the base axis at plate level, W up.",
     "Tag frame: x along detected corner 0 -> corner 1, y 90 deg counterclockwise from x seen from above.",
     "yaw_deg = direction of the tag's x axis in the world frame, measured from +U toward +V.",
-    "offsetTag_mm = [x, y] from the tag centre to the point of interest, in the tag frame.",
-    "null = not measured yet. Required values that are null stop the program with a message.",
-    "baseTag: measured t_0 (tag 0 centre -> base axis) = [-57.5, 84.5, 0] in tag 0's frame. U, V are taken parallel to tag 0's x, y, so the tag centre is at -t_0 and yaw_deg = 0."
+    "baseTag: measured t_0 (tag 0 centre -> base axis) = [-57.5, 84.5, 0] in tag 0's frame. U, V are taken parallel to tag 0's x, y, so the tag centre is at -t_0 and yaw_deg = 0.",
+    "calibrationFile is the default; the Python tools always pass the webcam calibration explicitly."
   ],
 
-  "calibrationFile": "calibration/iphone-0.5-cameraparams.mat",
+  "calibrationFile": "calibration/webcamParams.mat",
   "photoDir": "photos",
   "logDir": "logs",
 
@@ -23,37 +22,5 @@
     "centerUV_mm": [57.5, -84.5],
     "yaw_deg": 0,
     "height_mm": 0
-  },
-
-  "inkPad": {
-    "id": null,
-    "height_mm": 0,
-    "offsetTag_mm": [null, null],
-    "targetHeight_mm": null
-  },
-
-  "paper": {
-    "id": null,
-    "height_mm": 0,
-    "offsetTag_mm": [0, 0],
-    "targetHeight_mm": null
-  },
-
-  "arm": {
-    "id": null,
-    "height_mm": null,
-    "offsetTag_mm": [0, 0]
-  },
-
-  "stamp": {
-    "tagToDisc_mm": [null, null],
-    "discHeight_mm": null
-  },
-
-  "holderSource": "tags",
-  "useHolderTagsAsReference": false,
-
-  "stampHolders": [
-    { "letter": "A", "tagId": null, "tagHeight_mm": 0, "onshapeCenterUV_mm": [null, null], "onshapeYaw_deg": null }
-  ]
+  }
 }
