@@ -1,7 +1,7 @@
 """Stamp holder GUI: webcam photo -> 26 stamp positions -> click a stamp, the arm picks it up
 with the magnet and puts it back.
 
-    python tools/stamp_hover_gui.py [stampholder.json] [--port COM6] [--camera 1]
+    python src/stamp_hover_gui.py [stampholder.json] [--port COM6] [--camera 1]
 
 1. Live view shows whether tags 0, 1 and 3 are seen. Keep the arm out of the shot (Park),
    then Take photo (or SPACE). The frame goes to photos/webcam_<time>.png and MATLAB runs
@@ -44,7 +44,7 @@ from the straight line (FINE_PATH_TOL_mm for the legs at the well) is split at i
 until it doesn't.
 
 The safe height starts at the tallest stamp top + SAFE_CLEARANCE_mm. Geometry and the IK are
-the same as tools/move_to_tag.py (config/arm_bryson.json). Not connected = plan only.
+the same as src/move_to_tag.py (config/arm_bryson.json). Not connected = plan only.
 """
 
 import argparse

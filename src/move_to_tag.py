@@ -2,12 +2,12 @@
 
 1. Photo with the base tag (ID 0) and one other tag, then in MATLAB:
        locateTagTarget(<id>)        -> logs/tagtarget_<time>.json
-2.     python tools/move_to_tag.py [tagtarget.json] [--port COM5] [--hover 5]
+2.     python src/move_to_tag.py [tagtarget.json] [--port COM5] [--hover 5]
    Moves the tool point to hover above the tag centre, asks for the measured miss and
    appends it to logs/tag_reach_trials.csv.
    Or, with the webcam, steps 1 and 2 in a loop (photo -> MATLAB -> move -> measure -> home):
-       python tools/move_to_tag.py --webcam <id> [--camera 1] --port COM6 --hover 20
-3.     python tools/move_to_tag.py --fit
+       python src/move_to_tag.py --webcam <id> [--camera 1] --port COM6 --hover 20
+3.     python src/move_to_tag.py --fit
    Refits the base servo from every logged miss and reports the radial (in-plane) error.
 
 Geometry (all from config/arm_<name>.json, see its _notes):
@@ -488,7 +488,7 @@ def previewAndCapture(cap, targetId):
 def locateWithMatlab(args, photoPath):
     """Run locateTagTarget on the photo; returns the tagtarget JSON path or None."""
     photo = photoPath.relative_to(REPO_ROOT).as_posix()
-    command = (f"addpath(genpath('src')); locateTagTarget({args.webcam}, '{photo}', "
+    command = (f"addpath(genpath('vision')); locateTagTarget({args.webcam}, '{photo}', "
                f"Calibration='{args.calibration}');")
     print(f"Locating tag {args.webcam} in MATLAB (about 20 s)...")
     run = subprocess.run([args.matlab, "-batch", command], cwd=REPO_ROOT, capture_output=True,

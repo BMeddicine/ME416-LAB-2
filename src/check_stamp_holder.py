@@ -1,8 +1,8 @@
 """Visual check of the stamp holder offsets: webcam photo -> MATLAB -> annotated image.
 
-    python tools/check_stamp_holder.py                 # webcam loop (camera 1)
-    python tools/check_stamp_holder.py --camera 0
-    python tools/check_stamp_holder.py --photo photos/webcam_20261015_101500.png
+    python src/check_stamp_holder.py                 # webcam loop (camera 1)
+    python src/check_stamp_holder.py --camera 0
+    python src/check_stamp_holder.py --photo photos/webcam_20261015_101500.png
 
 1. A live view shows whether the base tag 0 and the holder tags 1 and 3 are seen.
    Press SPACE to take the photo, Q / Esc to quit.
@@ -14,7 +14,7 @@
    cyan = front/lower row (L1..L13), green = back/upper row (U1..U13).
    Any key closes it and goes back to the live view.
 
-The geometry is in config/stamp_holder.json; the math is src/vision/solveStampHolder.m.
+The geometry is in config/stamp_holder.json; the math is vision/solveStampHolder.m.
 Nothing here moves the arm.
 """
 
@@ -88,7 +88,7 @@ def writeTagHints(photoPath):
 def matlabCommand(photoPath, calibration):
     """locateStampHolder call for the photo, with OpenCV's detections as tag hints."""
     hints = writeTagHints(photoPath).resolve().as_posix()
-    return (f"addpath(genpath('src')); locateStampHolder('{photoPath.resolve().as_posix()}', "
+    return (f"addpath(genpath('vision')); locateStampHolder('{photoPath.resolve().as_posix()}', "
             f"Calibration='{calibration}', TagHints='{hints}');")
 
 

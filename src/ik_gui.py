@@ -18,7 +18,7 @@ recorded with servo_angle_gui.py. A pose is only sent if both servo angles are i
 firmware's limits (read from firmware/src/main.cpp). The base (joint 1) only sets the
 direction of r, so it gets its own slider in servo degrees.
 
-Run:  python tools/ik_gui.py [calibration.csv]
+Run:  python src/ik_gui.py [calibration.csv]
 """
 
 import csv

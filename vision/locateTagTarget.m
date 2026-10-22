@@ -10,7 +10,7 @@ function result = locateTagTarget(targetId, photoPath, options)
 %     Save             write logs/tagtarget_<time>.json and an annotated .jpg (default true)
 %     Show             open the annotated image in a figure (default false)
 %
-%   For reach tests: tools/move_to_tag.py reads the newest tagtarget_*.json
+%   For reach tests: src/move_to_tag.py reads the newest tagtarget_*.json
 %   and drives the tool point to the tag centre. Only the base tag and the
 %   target tag need to be in the photo.
 %

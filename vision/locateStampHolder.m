@@ -21,7 +21,7 @@ function result = locateStampHolder(photoPath, options)
 %   and the base-frame grid from drawScene.
 %
 %   See solveStampHolder for the fields of result.
-%   From Python with the webcam: tools/check_stamp_holder.py.
+%   From Python with the webcam: src/check_stamp_holder.py.
 
     arguments
         photoPath string = ""
@@ -88,7 +88,7 @@ function result = locateStampHolder(photoPath, options)
         out = result;
         out.tags = rmfield(result.tags, ["cornerPx", "cornerUV_mm"]);
         out.stamps = rmfield(result.stamps, "rimCorners_UVW_mm");
-        % Pixel of each stamp top on the raw photo, for clicking on it (tools/stamp_hover_gui.py)
+        % Pixel of each stamp top on the raw photo, for clicking on it (src/stamp_hover_gui.py)
         topPx = projectWorldToPixel(result.pose, vertcat(result.stamps.top_UVW_mm), ...
             intrinsics.RadialDistortion);
         for k = 1:numel(out.stamps)

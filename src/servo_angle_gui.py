@@ -9,7 +9,7 @@ commands: "<joint> <angle>", "home", "stop", "speed", "status".
 Joint limits and home angles are read from the kJoints table in main.cpp, so the
 sliders can never ask for an angle the firmware considers unsafe.
 
-Run:  python tools/servo_angle_gui.py
+Run:  python src/servo_angle_gui.py
 Needs: pyserial  (pip install pyserial)
 """
 

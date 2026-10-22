@@ -14,7 +14,7 @@ function tags = detectTags(photoImg, tagFamily, intrinsics, hints)
 %
 %   tags = detectTags(..., hints) also tries to read tags the first pass
 %   missed. hints is a struct array with .id and .cornerPx (4x2, 0-based
-%   OpenCV pixels, e.g. from tools/check_stamp_holder.py). The stamp holder's
+%   OpenCV pixels, e.g. from src/check_stamp_holder.py). The stamp holder's
 %   tags sit on a black pad with only a thin white line around them, so
 %   readAprilTag can merge the tag's black border into the pad and miss it
 %   (tag 3 on the real rack). For each hinted tag that is missing, the photo
